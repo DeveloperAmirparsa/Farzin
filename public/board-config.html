@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090908"><title>کانفیگ تابلو فرزین</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/board-config.css">
+</head>
+<body>
+<div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+<main class="app-shell config-shell">
+<header class="app-header">
+  <div class="brand-lockup"><div class="brand-mark"><img src="/farzin-logo.png" alt="فرزین"></div><div><div class="eyebrow">FARZIN COIN · TV CONTROL</div><h1>مرکز کانفیگ تابلو فرزین</h1><p>کنترل چیدمان تلویزیون، نرخ‌ها، نمودار و خبرخوان اقتصادی</p></div></div>
+  <div class="header-status"><span class="status-dot online"></span><span>تنظیمات مستقل تابلو</span><a class="btn btn-outline" href="/board" target="_blank">مشاهده تابلو ↗</a><a class="btn btn-quiet" href="/">بازگشت به استودیو</a></div>
+</header>
+<section class="config-intro"><div><span class="eyebrow">CONTROL EVERYTHING</span><h2>تابلو را دقیقاً مطابق فضای گالری تنظیم کن</h2><p>نرخ‌ها، هویت بصری، کادرهای تماس و فوتر بین تابلو و استوری مشترک‌اند؛ چیدمان و خبرخوان مخصوص تلویزیون مستقل هستند.</p></div><div class="config-resolution"><b>1920 × 1080</b><span>FULL HD · TV BOARD</span></div></section>
+<div class="config-grid">
+  <section class="editor-column">
+    <details class="editor-card" open><summary><span class="summary-icon">01</span><span><b>نرخ‌های اصلی طلا و سکه</b><small>ده ردیف پیش‌فرض، با امکان افزودن و مرتب‌سازی نامحدود</small></span><span class="chevron">⌄</span></summary><div class="card-body"><p class="asset-catalog-help">فهرست دسته‌ها شامل طلا، انواع نقره، سکه، ارزهای آزاد و دولتی، رمزارزها (بیت‌کوین، تتر، اتریوم و ...)، فلزات پایه، نفت و انرژی، کالاها، جفت‌ارزها، شاخص‌ها، سهام، صندوق‌ها و اوراق است. برای نمادهای خارج از فهرست، گزینه «نماد سفارشی TGJU» را انتخاب و شناسه پروفایل را وارد کن. ضریب ۱۰ برای تبدیل ریال به تومان است؛ برای قیمت دلاری ضریب ۱ بماند.</p><div class="rates-toolbar"><p>برای ردیف‌هایی که منبع پشتیبانی نمی‌کند، ورود دستی در دسترس است.</p><button class="btn btn-outline btn-small" id="addMainRate">＋ افزودن نرخ</button></div><div id="mainRatesEditor" class="config-items"></div></div></details>
+    <details class="editor-card" open><summary><span class="summary-icon">02</span><span><b>پنل سمت راست؛ ارز و دارایی‌های جهانی</b><small>دلار، درهم، یورو، نقره و نفت با فلش جهت تغییر قیمت</small></span><span class="chevron">⌄</span></summary><div class="card-body"><p class="asset-catalog-help">همان فهرست جامع دارایی‌ها در این بخش نیز قابل استفاده است. آیکون هر دارایی به‌صورت خودکار از نوع نماد انتخاب می‌شود و می‌توانی آن را دستی تغییر بدهی.</p><div class="rates-toolbar"><p>جهت صعود و نزول از درصد تغییر ۲۴ ساعته یا منبع نرخ گرفته می‌شود.</p><button class="btn btn-outline btn-small" id="addSideRate">＋ افزودن دارایی</button></div><div id="sideRatesEditor" class="config-items"></div></div></details>
+    <details class="editor-card" open><summary><span class="summary-icon">03</span><span><b>هویت بصری و ظاهر تابلو</b><small>عنوان، رنگ‌ها، لوگو، قاب و شدت واترمارک</small></span><span class="chevron">⌄</span></summary><div class="card-body">
+      <div class="field-grid config-fields">
+        <label class="field"><span>نام برند</span><input type="text" maxlength="70" data-global="brand"></label>
+        <label class="field"><span>زیرعنوان</span><input type="text" maxlength="100" data-global="subtitle"></label>
+        <label class="field"><span>عنوان بخش طلا و سکه</span><input type="text" maxlength="70" data-global="mainTitle"></label>
+        <label class="field"><span>عنوان پنل ارز و دارایی‌ها</span><input type="text" maxlength="70" data-global="sideTitle"></label>
+        <label class="field full"><span>عنوان نمودار</span><input type="text" maxlength="80" data-global="chartTitle"></label>
+        <label class="field"><span>رنگ پس‌زمینه</span><input type="color" data-global="bgColor"></label>
+        <label class="field"><span>رنگ طلایی</span><input type="color" data-global="goldColor"></label>
+        <label class="field"><span>رنگ نوشته اصلی</span><input type="color" data-global="textColor"></label>
+        <label class="field"><span>رنگ نوشته فرعی</span><input type="color" data-global="mutedColor"></label>
+        <label class="field"><span>شفافیت واترمارک (%)</span><input type="number" min="0" max="25" data-global="watermarkOpacity"></label>
+      </div>
+      <div class="config-toggle-grid">
+        <label class="check-field"><input type="checkbox" data-global="showLogo"><span>نمایش لوگوی بالای تابلو</span></label>
+        <label class="check-field"><input type="checkbox" data-global="showFrame"><span>نمایش قاب دور تابلو</span></label>
+      </div>
+      <p class="fine-print">رنگ‌ها و هویت برند بین خروجی استوری و تابلو مشترک هستند. واترمارک از لوگوی PNG شفاف خود فرزین استفاده می‌کند.</p>
+    </div></details>
+    <details class="editor-card" open><summary><span class="summary-icon">04</span><span><b>نحوه نمایش و چیدمان تابلو</b><small>روشن/خاموش‌کردن اجزا و کنترل چرخه بروزرسانی</small></span><span class="chevron">⌄</span></summary><div class="card-body">
+<div class="config-toggle-grid">
+        <label class="check-field"><input type="checkbox" data-board="showMainRates" checked><span>نمایش نرخ‌های اصلی</span></label>
+        <label class="check-field"><input type="checkbox" data-board="showSideRates" checked><span>نمایش پنل سمت راست</span></label>
+        <label class="check-field"><input type="checkbox" data-board="showMarketStatus" checked><span>وضعیت باز/بسته بازار</span></label>
+        <label class="check-field"><input type="checkbox" data-board="showClock" checked><span>ساعت زنده تهران</span></label>
+        <label class="check-field"><input type="checkbox" data-board="showJalaliDate" checked><span>تاریخ شمسی</span></label>
+        <label class="check-field"><input type="checkbox" data-board="showGregorianDate" checked><span>تاریخ میلادی</span></label>
+        <label class="check-field"><input type="checkbox" data-board="showGoldChart" checked><span>نمودار روزانه طلای ۱۸</span></label>
+        <label class="check-field"><input type="checkbox" data-board="showContacts" checked><span>کادرهای اطلاعات تماس</span></label>
+        <label class="check-field"><input type="checkbox" data-board="showFooter" checked><span>متن‌های فوتر</span></label>
+        <label class="check-field"><input type="checkbox" data-board="showNewsTicker" checked><span>نوار اخبار اقتصادی</span></label>
+      </div>
+      <div class="field-grid config-fields">
+        <label class="field"><span>فاصله بروزرسانی نرخ‌ها (ثانیه)</span><input type="number" min="20" max="300" step="5" data-board="refreshSeconds"></label>
+        <label class="field"><span>بازه نمودار</span><select data-board="chartRange"><option value="1d">امروز · دقیقه‌ای</option><option value="30d">۳۰ روز</option><option value="90d">۹۰ روز</option><option value="1y">یک سال</option></select></label>
+        <label class="field"><span>تعداد ستون کارت‌های نرخ اصلی</span><select data-board="mainColumns"><option value="1">۱ ستون</option><option value="2">۲ ستون</option><option value="3">۳ ستون</option></select></label>
+        <label class="field"><span>عرض پنل سمت راست (درصد)</span><input type="number" min="20" max="40" step="1" data-board="sidePanelPercent"></label>
+        <label class="field"><span>فاصله کارت‌های نرخ (px)</span><input type="number" min="8" max="24" step="1" data-board="mainCardGap"></label>
+        <label class="field"><span>مقیاس فونت قیمت‌های اصلی</span><input type="number" min="0.75" max="1.25" step="0.05" data-board="mainFontScale"></label>
+        <label class="field"><span>مقیاس فونت پنل جانبی</span><input type="number" min="0.75" max="1.2" step="0.05" data-board="sideFontScale"></label>
+      </div>
+    </div></details>
+    <details class="editor-card" open><summary><span class="summary-icon">05</span><span><b>خبرخوان اقتصادی و زیرنویس تابلو</b><small>منابع فارسی RSS، سرعت حرکت نرم، فاصله دریافت اخبار و عنوان نوار</small></span><span class="chevron">⌄</span></summary><div class="card-body">
+      <div class="field-grid config-fields">
+        <label class="field full"><span>عنوان نوار خبر</span><input type="text" maxlength="40" data-board="tickerLabel" placeholder="تازه‌ترین اخبار جهان"></label>
+        <label class="field full"><span>نشانی خبرخوان RSS (HTTPS)</span><input type="url" data-board="newsFeedUrl" placeholder="https://.../rss"></label>
+        <label class="field"><span>فاصله دریافت خبر (ثانیه)</span><input type="number" min="60" max="900" step="30" data-board="newsRefreshSeconds"></label>
+        <label class="field"><span>سرعت حرکت نوار (پیکسل بر ثانیه)</span><input type="number" min="30" max="180" step="5" data-board="tickerSpeed"></label>
+        <label class="field"><span>اندازه فونت نوار خبر</span><input type="number" min="12" max="25" step="1" data-board="tickerFontSize"></label>
+      </div>
+      <p class="fine-print">خبرخوان پیش‌فرض از دو منبع فارسی BBC فارسی و دویچه‌وله فارسی، با پوشش خبرهای ایران و جهان استفاده می‌کند. تیترهای انگلیسیِ بدون متن فارسی وارد زیرنویس نمی‌شوند. می‌توانی نشانی RSS فارسی دیگری را جایگزین کنی. لینک خبرها در خروجی تابلو درج نمی‌شود؛ فقط تیتر و نام منبع نمایش داده می‌شود.</p>
+    </div></details>
+    <details class="editor-card" open><summary><span class="summary-icon">06</span><span><b>ویجت رسمی و بدون کلید TGJU</b><small>کد خروجی رسمی TGJU را وارد کن تا در یک صفحه مستقل و زنده نمایش داده شود</small></span><span class="chevron">⌄</span></summary><div class="card-body">
+      <p class="fine-print">در <a href="https://www.tgju.org/widget/" target="_blank" rel="noopener noreferrer">ویجت‌ساز رسمی TGJU</a> یکی از ابزارک‌های جدول قیمت، نوار متحرک، بلوک قیمت یا نمای بازار را بساز و کد خروجی آن را اینجا بچسبان. فقط تگ tgju و شناسه عددی آیتم‌ها خوانده می‌شوند؛ اسکریپت دلخواه اجرا نمی‌شود. ویجت رسمی چرخه بروزرسانی خودش را دارد.</p>
+      <label class="field full"><span>کد خروجی ویجت TGJU</span><textarea id="tgjuWidgetCode" data-board="tgjuWidgetCode" rows="5" spellcheck="false" placeholder='<tgju type="market-data" items="..." columns="dot,diff,time" token="webservice"></tgju>
+<script src="https://api.tgju.org/v1/widget/v2" defer></script>'></textarea></label>
+      <div class="rates-toolbar"><p>پیش‌نمایش امن؛ فقط ساختار رسمی TGJU بارگذاری می‌شود.</p><button class="btn btn-outline btn-small" id="previewTgjuWidget" type="button">پیش‌نمایش ویجت</button></div>
+      <div id="tgjuWidgetPreview" class="tgju-preview" aria-live="polite"><p>برای پیش‌نمایش، کد خروجی ویجت TGJU را وارد و دکمه پیش‌نمایش را بزن.</p></div>
+      <div class="quick-links"><a href="https://www.tgju.org/widget/profile/geram18" target="_blank" rel="noopener noreferrer">طلای ۱۸</a><a href="https://www.tgju.org/widget/profile/geram24" target="_blank" rel="noopener noreferrer">طلای ۲۴</a><a href="https://www.tgju.org/widget/profile/mesghal" target="_blank" rel="noopener noreferrer">مثقال</a><a href="https://www.tgju.org/widget/profile/sekee" target="_blank" rel="noopener noreferrer">سکه امامی</a><a href="https://www.tgju.org/widget/profile/nim" target="_blank" rel="noopener noreferrer">نیم</a><a href="https://www.tgju.org/widget/profile/rob" target="_blank" rel="noopener noreferrer">ربع</a><a href="https://www.tgju.org/widget/profile/gerami" target="_blank" rel="noopener noreferrer">گرمی</a><a href="https://www.tgju.org/widget/profile/price_dollar_rl" target="_blank" rel="noopener noreferrer">دلار</a><a href="https://www.tgju.org/widget/profile/price_eur" target="_blank" rel="noopener noreferrer">یورو</a><a href="https://www.tgju.org/widget/profile/price_aed" target="_blank" rel="noopener noreferrer">درهم</a><a href="https://www.tgju.org/widget/profile/silver_999" target="_blank" rel="noopener noreferrer">نقره</a><a href="https://www.tgju.org/widget/profile/energy-brent-oil" target="_blank" rel="noopener noreferrer">نفت برنت</a></div>
+      <p class="fine-print">صفحه نمایش ویجت رسمی: <a href="/tgju-widget" target="_blank" rel="noopener noreferrer">باز کردن نمایشگر TGJU ↗</a>. این مسیر از اسکریپت رسمی api.tgju.org استفاده می‌کند؛ قیمت‌ها داخل canvas فرزین خوانده یا بازنشر ساختاری نمی‌شوند.</p>
+    </div></details>
+    <details class="editor-card" open><summary><span class="summary-icon">07</span><span><b>منبع یکپارچه نرخ‌ها · TGJU</b><small>تمام قیمت‌های تابلو و استوری مستقیماً از TGJU دریافت می‌شوند؛ بدون کلید API</small></span><span class="chevron">⌄</span></summary><div class="card-body">
+      <div class="provider-box"><b>شبکه اطلاع‌رسانی طلا و ارز · TGJU</b><p>فید زنده‌ای که خود سایت برای بروزرسانی قیمت‌ها استفاده می‌کند. سرور محلی هر ۳۰ ثانیه داده‌ها را می‌خواند و تابلو بدون انتظار برای سرویس بیرونی باز می‌شود.</p><div class="provider-foot" id="tgjuSourceStatus">در حال بررسی ارتباط با TGJU…</div><button class="btn btn-outline btn-small" id="forceTgjuRefresh" type="button">دریافت نرخ همین حالا</button></div>
+      <p class="fine-print">نرخ‌های داخلی TGJU بر حسب ریال برگردانده می‌شوند و در پنل به تومان تبدیل می‌شوند. اونس و نفت برنت با واحد دلاری خود باقی می‌مانند. طلای ۲۱ عیار از نرخ زنده ۱۸ عیار محاسبه می‌شود. TGJU API عمومی مستندشده‌ای ارائه نکرده؛ فید مورد استفاده در این نسخه همان endpoint مصرفی وب‌سایت است و ممکن است در تغییرات آینده سایت عوض شود.</p>
+      <input type="hidden" id="talasanjKey"><input type="hidden" id="arzhaamKey"><div hidden id="talasanjState">منبع TGJU</div><div hidden id="arzhaamState">منبع TGJU</div>
+    </div></details>
+    <details class="editor-card"><summary><span class="summary-icon">08</span><span><b>نمایش‌های مشترک استوری و تابلو</b><small>کنترل اینکه کدام اطلاعات در تصویر استوری هم قرار بگیرند</small></span><span class="chevron">⌄</span></summary><div class="card-body"><div class="config-toggle-grid">
+      <label class="check-field"><input type="checkbox" data-story="showMainRates" checked><span>نرخ‌های اصلی در استوری</span></label>
+      <label class="check-field"><input type="checkbox" data-story="showSideRates" checked><span>ارزها و دارایی‌های جهانی در استوری</span></label>
+      <label class="check-field"><input type="checkbox" data-story="showMarketStatus" checked><span>وضعیت بازار در استوری</span></label>
+      <label class="check-field"><input type="checkbox" data-story="showGoldChart" checked><span>نمودار طلا در استوری</span></label>
+      <label class="check-field"><input type="checkbox" data-story="showBothDates" checked><span>تاریخ شمسی و میلادی در استوری</span></label>
+      <label class="check-field"><input type="checkbox" data-story="showContacts" checked><span>کادرهای اطلاعات پایین استوری</span></label>
+      <label class="check-field"><input type="checkbox" data-story="showFooter" checked><span>فوترهای استوری</span></label>
+    </div><p class="fine-print">اطلاعات نرخ و زمان آن از یک منبع مشترک تغذیه می‌شوند؛ تنظیمات نمایش می‌توانند برای هر قالب جدا باشند.</p></div></details>
+    <details class="editor-card" open><summary><span class="summary-icon">09</span><span><b>کادرهای اطلاعات و فوتر اختصاصی تابلو</b><small>افزودن، حذف و مرتب‌سازی کادرها؛ فوتر تابلو از فوتر استوری جداست</small></span><span class="chevron">⌄</span></summary><div class="card-body">
+      <div class="rates-toolbar"><p>کادرهای تماس طبق تنظیمات فعلی مشترک می‌مانند؛ متن‌های فوتر پایین فقط مخصوص تابلو هستند.</p><button class="btn btn-outline btn-small" id="addBoardContact">＋ افزودن کادر</button></div>
+      <div id="boardContactsEditor" class="config-items"></div>
+      <div class="rates-toolbar footer-toolbar"><p>فوتر مستقل تابلو؛ هیچ ارتباطی با فوتر استوری ندارد و فقط روی نمایشگر تلویزیون دیده می‌شود.</p><button class="btn btn-outline btn-small" id="addBoardFooter">＋ افزودن فوتر</button></div>
+      <div id="boardFootersEditor" class="config-items"></div>
+    </div></details>
+    <div class="bottom-actions"><button class="btn btn-primary btn-export" id="saveBoardConfig">ذخیره تمام تنظیمات</button><button class="btn btn-quiet" id="reloadBoardConfig">بارگذاری مجدد</button><span id="configSaveMessage" role="status"></span></div>
+  </section>
+  <aside class="preview-column config-aside"><div class="editor-card config-summary"><div class="card-body"><span class="eyebrow">LIVE TV</span><h3>نمایشگر زنده فرزین</h3><div class="config-preview"><img src="/farzin-logo.png" alt="لوگوی فرزین"><b>FARZIN COIN</b><span>FULL HD · 30 SEC REFRESH</span></div><a class="btn btn-primary" href="/board" target="_blank">باز کردن تابلو زنده ↗</a><div class="source-note"><b>منابع هر بازار</b><br>تمام نرخ‌های طلا، سکه، ارز، نقره و نفت: TGJU<br>بروزرسانی خودکار: هر ۳۰ ثانیه<br>خبرها: RSS قابل تغییر</div></div></div></aside>
+</div>
+<footer class="app-footer">FARZIN COIN · TV CONTROL <span>تمام تنظیمات با ذخیره، روی همین کامپیوتر ثبت می‌شوند.</span></footer>
+</main>
+<div class="toast" id="toast" role="status"></div><script src="/asset-catalog.js"></script><script src="/asset-icons.js"></script><script src="/tgju-widget.js"></script><script src="/board-config.js"></script>
+</body></html>

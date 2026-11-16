@@ -1,0 +1,677 @@
+'use strict';
+
+const $ = id => document.getElementById(id);
+const API_SYMBOLS = [
+  ['gram18', 'طلای ۱۸ عیار'], ['gram24', 'طلای ۲۴ عیار'], ['gram21', 'طلای ۲۱ عیار'],
+  ['mazaneh', 'مظنه'], ['coin_full', 'سکه تمام / امامی'], ['coin_half', 'نیم سکه'],
+  ['coin_quarter', 'ربع سکه'], ['coin_old', 'سکه قدیم · TGJU'], ['coin_gerami', 'سکه گرمی · TGJU'], ['usd', 'دلار تهران'], ['ounce', 'اونس جهانی'],
+  ...(window.FARZIN_ASSET_CATALOG?.items||[]).map(item=>[item.symbol,`${item.label} · ${item.categoryLabel}`]),
+  ['custom','نماد سفارشی TGJU'],['manual', 'ورود دستی']
+];
+
+const DEFAULT_SETTINGS = {
+  brand: 'گالری طلا و سکه فرزین',
+  subtitle: 'نرخ لحظه‌ای بازار طلا و سکه',
+  mainTitle: 'نرخ لحظه‌ای طلا و سکه', sideTitle: 'ارز و بازارهای جهانی', chartTitle: 'نمودار تغییرات طلای ۱۸ عیار',
+  phone: '', whatsapp: '', address: '',
+  contactCards: [
+    { id: 'contact-phone', title: 'تلفن', value: '', visible: true },
+    { id: 'contact-whatsapp', title: 'واتساپ', value: '', visible: true },
+    { id: 'contact-address', title: 'آدرس', value: '', visible: true }
+  ],
+  footer: 'نرخ‌ها ممکن است در طول روز تغییر کنند',
+  footerLines: [
+    { id: 'footer-main', text: 'نرخ‌ها ممکن است در طول روز تغییر کنند', visible: true }
+  ],
+  showDate: true, showUpdate: true, showLogo: true,
+  bgColor: '#0b0b0a', goldColor: '#c8a85c', textColor: '#f5f0e5', mutedColor: '#bcb19b',
+  watermarkOpacity: 8, exportScale: 1, showFrame: true, showAttribution: true, liveEnabled: true,
+  schemaVersion: 4,
+  sideRates: [
+    { id:'usd-side', label:'دلار', source:'usd', unit:'تومان', manualValue:'', visible:true },
+    { id:'aed-side', label:'درهم', source:'aed', unit:'تومان', manualValue:'', visible:true },
+    { id:'eur-side', label:'یورو', source:'eur', unit:'تومان', manualValue:'', visible:true },
+    { id:'silver-side', label:'نقره ۹۹۹', source:'silver', unit:'تومان / گرم', manualValue:'', visible:true },
+    { id:'oil-side', label:'نفت برنت', source:'oil', unit:'دلار / بشکه', manualValue:'', visible:true }
+  ],
+  boardConfig: {
+    refreshSeconds:30, showMainRates:true, showSideRates:true, showMarketStatus:true, showClock:true,
+    showJalaliDate:true, showGregorianDate:true, showGoldChart:true, showContacts:true, showFooter:true,
+    showNewsTicker:true, tickerLabel:'آخرین اخبار اقتصادی',
+    newsFeedUrl:'https://news.google.com/rss/search?q=%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF+%D8%A7%DB%8C%D8%B1%D8%A7%D9%86+OR+%D8%B7%D9%84%D8%A7+OR+%D8%A7%D8%B1%D8%B2+OR+%D9%86%D9%81%D8%AA&hl=fa&gl=IR&ceid=IR:fa',
+    newsRefreshSeconds:180, tickerSpeed:65, tickerFontSize:17, chartRange:'1d', mainColumns:2, sidePanelPercent:27, mainCardGap:14, mainFontScale:1, sideFontScale:1
+  },
+  storyConfig: { showMainRates:true, showSideRates:true, showMarketStatus:true, showGoldChart:true, showBothDates:true, showContacts:true, showFooter:true },
+  sections: [
+    { id:'main-prices', title:'نرخ طلا و سکه', visible:true, rows: [
+      { id:'mazaneh-main', label:'مظنه', source:'mazaneh', unit:'تومان', manualValue:'', visible:true, featured:true },
+      { id:'gram18-main', label:'گرم طلای ۱۸ عیار', source:'gram18', unit:'تومان', manualValue:'', visible:true, featured:true },
+      { id:'emami86-main', label:'سکه امامی ۸۶', source:'coin_full', unit:'تومان', manualValue:'', visible:true, featured:true },
+      { id:'oldcoin-main', label:'سکه قدیم', source:'coin_old', unit:'تومان', manualValue:'', visible:true, featured:false },
+      { id:'half86-main', label:'نیم سکه ۸۶', source:'coin_half', unit:'تومان', manualValue:'', visible:true, featured:false },
+      { id:'quarter86-main', label:'ربع سکه ۸۶', source:'coin_quarter', unit:'تومان', manualValue:'', visible:true, featured:false },
+      { id:'gramcoin-main', label:'سکه یک گرمی', source:'coin_gerami', unit:'تومان', manualValue:'', visible:true, featured:false },
+      { id:'gram24-main', label:'طلای ۲۴ عیار', source:'gram24', unit:'تومان', manualValue:'', visible:true, featured:false },
+      { id:'gram21-main', label:'طلای ۲۱ عیار', source:'gram21', unit:'تومان', manualValue:'', visible:true, featured:false },
+      { id:'ounce-main', label:'انس طلا', source:'ounce', unit:'دلار', manualValue:'', visible:true, featured:false }
+    ]}
+  ]};
+
+let settings = clone(DEFAULT_SETTINGS);
+let livePrices = {};
+let globalUpdatedAt = null;
+let sideRates = {};
+let assetPrices = {};
+let historyPayload = null;
+let apiKeyConfigured = false;
+let eventSource = null;
+let latestPayload = null;
+let toastTimer = null;
+let logoImage = new Image();
+logoImage.src = '/farzin-logo.png';
+logoImage.onload = renderStory;
+
+function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
+function esc(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function faNumber(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return String(value);
+  return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(n);
+}
+function tehranDateParts() {
+  const date = new Date();
+  const dateParts = new Intl.DateTimeFormat('en-US-u-ca-persian', {
+    timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(date);
+  const part = type => dateParts.find(item => item.type === type)?.value || '00';
+  const weekday = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+    timeZone: 'Asia/Tehran', weekday: 'long'
+  }).format(date);
+  const padded = type => new Intl.NumberFormat('fa-IR', { useGrouping: false, minimumIntegerDigits: type === 'year' ? 4 : 2 }).format(Number(part(type)));
+  return { date: `${padded('year')}/${padded('month')}/${padded('day')}`, weekday };
+}
+function normalizeSettings(raw = {}) {
+  const merged = { ...clone(DEFAULT_SETTINGS), ...(raw && typeof raw === 'object' ? raw : {}) };
+  if (!Array.isArray(raw.contactCards)) {
+    merged.contactCards = [
+      { id: 'contact-phone', title: 'تلفن', value: raw.phone || '', visible: true },
+      { id: 'contact-whatsapp', title: 'واتساپ', value: raw.whatsapp || '', visible: true },
+      { id: 'contact-address', title: 'آدرس', value: raw.address || '', visible: true }
+    ];
+  }
+  if (!Array.isArray(raw.footerLines)) {
+    merged.footerLines = [{ id: 'footer-main', text: raw.footer || DEFAULT_SETTINGS.footer, visible: true }];
+  }
+  merged.contactCards = merged.contactCards.map((item, i) => ({ id: item.id || makeId('contact'), title: item.title || `اطلاعات ${i+1}`, value: item.value || '', visible: item.visible !== false }));
+  merged.footerLines = merged.footerLines.map((item, i) => ({ id: item.id || makeId('footer'), text: item.text || '', visible: item.visible !== false }));
+  if (!Array.isArray(merged.sections)) merged.sections = clone(DEFAULT_SETTINGS.sections);
+  if (!raw.schemaVersion || Number(raw.schemaVersion) < 4) {
+    const oldRows = merged.sections.flatMap(section => section.rows || []);
+    const oldBySource = new Map(oldRows.map(row => [row.source, row]));
+    merged.sections = clone(DEFAULT_SETTINGS.sections);
+    merged.sections[0].rows = merged.sections[0].rows.map(row => {
+      const old = oldBySource.get(row.source);
+      return old ? { ...row, manualValue: old.manualValue || '', visible: old.visible !== false, featured: old.featured ?? row.featured } : row;
+    });
+    merged.sideRates = clone(DEFAULT_SETTINGS.sideRates);
+    merged.boardConfig = clone(DEFAULT_SETTINGS.boardConfig);
+    merged.storyConfig = clone(DEFAULT_SETTINGS.storyConfig);
+    merged.schemaVersion = 4;
+  }
+  if (!Array.isArray(merged.sideRates)) merged.sideRates = clone(DEFAULT_SETTINGS.sideRates);
+  merged.boardConfig = { ...clone(DEFAULT_SETTINGS.boardConfig), ...(merged.boardConfig || {}) };
+  merged.storyConfig = { ...clone(DEFAULT_SETTINGS.storyConfig), ...(merged.storyConfig || {}) };
+  return merged;
+}
+function formatTehranTime(iso) {
+  if (!iso) return 'زمان منبع نامشخص';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'زمان منبع نامشخص';
+  return new Intl.DateTimeFormat('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date);
+}
+function showToast(message) {
+  const el = $('toast');
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+function setConnection(state, label, market) {
+  $('statusDot').className = `status-dot ${state}`;
+  $('connectionLabel').textContent = label;
+  if (market) $('marketStatus').textContent = market;
+}
+function timeForPrice(price) {
+  return price && price.updated_at ? price.updated_at : globalUpdatedAt;
+}
+function getRowData(row) {
+  if (row.source === 'manual') {
+    return { value: row.manualValue || '', updatedAt: null, isManual: true };
+  }
+  const item = livePrices && (livePrices[row.source] || assetPrices[row.symbol || row.source]);
+  const divisor = Math.max(0.0000001, Number(row.divisor) || 1);
+  return {
+    value: item && item.price !== undefined ? Number(item.price) / divisor : '',
+    updatedAt: timeForPrice(item),
+    isManual: false
+  };
+}
+function loadSettingsIntoForm() {
+  document.querySelectorAll('[data-config]').forEach(el => {
+    const key = el.dataset.config;
+    if (!(key in settings)) return;
+    if (el.type === 'checkbox') el.checked = Boolean(settings[key]);
+    else el.value = settings[key];
+  });
+  $('liveEnabled').checked = settings.liveEnabled !== false;
+  $('watermarkValue').textContent = `${faNumber(settings.watermarkOpacity)}٪`;
+  renderSectionEditors();
+  renderCustomEditors();
+  renderStory();
+}
+function renderCustomEditors() {
+  const contactsHost = $('contactCardsEditor');
+  const footersHost = $('footerLinesEditor');
+  if (contactsHost) {
+    contactsHost.innerHTML = settings.contactCards.map((card, index) => `
+      <div class="custom-item-editor">
+        <input class="row-input" data-contact-field="title" data-contact-id="${esc(card.id)}" value="${esc(card.title)}" placeholder="عنوان کادر" aria-label="عنوان کادر">
+        <input class="row-input" data-contact-field="value" data-contact-id="${esc(card.id)}" value="${esc(card.value)}" placeholder="متن یا شماره" aria-label="متن کادر">
+        <label class="mini-check"><input type="checkbox" data-contact-field="visible" data-contact-id="${esc(card.id)}" ${card.visible ? 'checked' : ''}> نمایش</label>
+        <div class="row-actions">
+          <button class="icon-btn" data-custom-action="contact-up" data-custom-id="${esc(card.id)}" title="انتقال به بالا">↑</button>
+          <button class="icon-btn" data-custom-action="contact-down" data-custom-id="${esc(card.id)}" title="انتقال به پایین">↓</button>
+          <button class="icon-btn danger" data-custom-action="contact-delete" data-custom-id="${esc(card.id)}" title="حذف کادر">×</button>
+        </div>
+      </div>`).join('') || '<p class="empty-custom-list">هنوز کادری نساخته‌ای.</p>';
+  }
+  if (footersHost) {
+    footersHost.innerHTML = settings.footerLines.map(line => `
+      <div class="custom-item-editor footer-item-editor">
+        <input class="row-input" data-footer-field="text" data-footer-id="${esc(line.id)}" value="${esc(line.text)}" placeholder="متن فوتر" aria-label="متن فوتر">
+        <label class="mini-check"><input type="checkbox" data-footer-field="visible" data-footer-id="${esc(line.id)}" ${line.visible ? 'checked' : ''}> نمایش</label>
+        <div class="row-actions">
+          <button class="icon-btn" data-custom-action="footer-up" data-custom-id="${esc(line.id)}" title="انتقال به بالا">↑</button>
+          <button class="icon-btn" data-custom-action="footer-down" data-custom-id="${esc(line.id)}" title="انتقال به پایین">↓</button>
+          <button class="icon-btn danger" data-custom-action="footer-delete" data-custom-id="${esc(line.id)}" title="حذف متن">×</button>
+        </div>
+      </div>`).join('') || '<p class="empty-custom-list">هنوز متنی برای فوتر اضافه نشده.</p>';
+  }
+  contactsHost?.querySelectorAll('[data-contact-field]').forEach(el => {
+    el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
+      const item = settings.contactCards.find(card => card.id === el.dataset.contactId);
+      if (!item) return;
+      item[el.dataset.contactField] = el.type === 'checkbox' ? el.checked : el.value;
+      renderStory();
+    });
+  });
+  footersHost?.querySelectorAll('[data-footer-field]').forEach(el => {
+    el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
+      const item = settings.footerLines.find(line => line.id === el.dataset.footerId);
+      if (!item) return;
+      item[el.dataset.footerField] = el.type === 'checkbox' ? el.checked : el.value;
+      renderStory();
+    });
+  });
+  document.querySelectorAll('[data-custom-action]').forEach(btn => btn.addEventListener('click', () => handleCustomAction(btn.dataset.customAction, btn.dataset.customId)));
+}
+function moveListItem(list, id, direction) {
+  const index = list.findIndex(item => item.id === id);
+  const next = index + direction;
+  if (index < 0 || next < 0 || next >= list.length) return;
+  [list[index], list[next]] = [list[next], list[index]];
+}
+function handleCustomAction(action, id) {
+  if (action.startsWith('contact-')) {
+    if (action === 'contact-delete') settings.contactCards = settings.contactCards.filter(item => item.id !== id);
+    else moveListItem(settings.contactCards, id, action === 'contact-up' ? -1 : 1);
+  } else {
+    if (action === 'footer-delete') settings.footerLines = settings.footerLines.filter(item => item.id !== id);
+    else moveListItem(settings.footerLines, id, action === 'footer-up' ? -1 : 1);
+  }
+  renderCustomEditors(); renderStory();
+}
+$('addContactCard')?.addEventListener('click', () => {
+  settings.contactCards.push({ id: makeId('contact'), title: 'عنوان جدید', value: 'متن دلخواه', visible: true });
+  renderCustomEditors(); renderStory();
+});
+$('addFooterLine')?.addEventListener('click', () => {
+  settings.footerLines.push({ id: makeId('footer'), text: 'متن جدید فوتر', visible: true });
+  renderCustomEditors(); renderStory();
+});
+
+function bindBasics() {
+  document.querySelectorAll('[data-config]').forEach(el => {
+    el.addEventListener('input', () => {
+      const key = el.dataset.config;
+      settings[key] = el.type === 'checkbox' ? el.checked : (el.type === 'range' || el.tagName === 'SELECT' && key === 'exportScale' ? Number(el.value) : el.value);
+      if (key === 'watermarkOpacity') $('watermarkValue').textContent = `${faNumber(settings.watermarkOpacity)}٪`;
+      renderStory();
+    });
+  });
+  $('liveEnabled').addEventListener('change', () => {
+    settings.liveEnabled = $('liveEnabled').checked;
+    if (settings.liveEnabled) startLive(); else stopLive('استریم زنده خاموش است.');
+  });
+}
+function renderSectionEditors() {
+  const host = $('sectionsEditor');
+  host.innerHTML = settings.sections.map((section, sectionIndex) => `
+    <div class="section-editor" data-section="${esc(section.id)}">
+      <div class="section-editor-top">
+        <input class="section-title-input" data-section-title="${esc(section.id)}" value="${esc(section.title)}" maxlength="32" aria-label="عنوان بخش">
+        <button class="icon-btn" data-action="section-up" data-section-id="${esc(section.id)}" title="انتقال به بالا">↑</button>
+        <button class="icon-btn" data-action="section-down" data-section-id="${esc(section.id)}" title="انتقال به پایین">↓</button>
+        <button class="icon-btn danger" data-action="section-delete" data-section-id="${esc(section.id)}" title="حذف بخش">×</button>
+      </div>
+      <div class="section-editor-options">
+        <label class="mini-check"><input type="checkbox" data-section-visible="${esc(section.id)}" ${section.visible ? 'checked' : ''}> نمایش این بخش در استوری</label>
+        <span class="mini-check">${faNumber(section.rows.length)} ردیف</span>
+        <button class="btn btn-outline btn-small" data-action="row-add" data-section-id="${esc(section.id)}">＋ افزودن نرخ</button>
+      </div>
+      ${section.rows.map((row, rowIndex) => `
+        <div class="row-editor" data-row="${esc(row.id)}">
+          <input class="row-input" data-row-field="label" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" value="${esc(row.label)}" placeholder="عنوان قیمت" aria-label="عنوان قیمت">
+          <select class="source-select" data-row-field="source" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" aria-label="منبع قیمت">
+            ${API_SYMBOLS.map(([key,label]) => `<option value="${key}" ${row.source === key ? 'selected' : ''}>${label}</option>`).join('')}
+          </select>
+          <input class="row-input" data-row-field="unit" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" value="${esc(row.unit)}" placeholder="واحد" aria-label="واحد">
+          <input class="row-input" data-row-field="symbol" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" value="${esc(row.symbol || '')}" placeholder="شناسه نماد سفارشی TGJU" aria-label="شناسه نماد TGJU">
+          <input class="row-input" type="number" min="0.000001" step="any" data-row-field="divisor" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" value="${esc(row.divisor || 1)}" placeholder="تقسیم بر" aria-label="ضریب تبدیل">
+          <select class="source-select" data-row-field="icon" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}">${(window.FARZIN_ASSET_CATALOG?.iconTypes||['auto','gold','coin','silver','currency','crypto','oil','metal','commodity','forex','stock','fund','bond','generic']).map(icon=>`<option value="${icon}" ${row.icon===icon?'selected':''}>${icon}</option>`).join('')}</select>
+          <input class="row-input" data-row-field="manualValue" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" value="${esc(row.manualValue || '')}" placeholder="مقدار دستی" aria-label="مقدار دستی">
+          <div class="row-actions">
+            <button class="icon-btn" data-action="row-up" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" title="انتقال به بالا">↑</button>
+            <button class="icon-btn" data-action="row-down" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" title="انتقال به پایین">↓</button>
+            <button class="icon-btn danger" data-action="row-delete" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" title="حذف نرخ">×</button>
+          </div>
+          <div class="row-actions row-options">
+            <label class="mini-check"><input type="checkbox" data-row-field="visible" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" ${row.visible ? 'checked' : ''}> نمایش</label>
+            <label class="mini-check"><input type="checkbox" data-row-field="featured" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" ${row.featured ? 'checked' : ''}> طلایی</label>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+
+  host.querySelectorAll('[data-section-title]').forEach(el => el.addEventListener('input', () => {
+    const section = findSection(el.dataset.sectionTitle); if (section) section.title = el.value; renderStory();
+  }));
+  host.querySelectorAll('[data-section-visible]').forEach(el => el.addEventListener('change', () => {
+    const section = findSection(el.dataset.sectionVisible); if (section) section.visible = el.checked; renderStory();
+  }));
+  host.querySelectorAll('[data-row-field]').forEach(el => {
+    const eventName = el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input';
+    el.addEventListener(eventName, () => {
+      const row = findRow(el.dataset.sectionId, el.dataset.rowId); if (!row) return;
+      row[el.dataset.rowField] = el.type === 'checkbox' ? el.checked : (el.type === 'number' ? Number(el.value) : el.value);
+      if (el.dataset.rowField === 'source') {
+        const asset = (window.FARZIN_ASSET_CATALOG?.items || []).find(item => item.symbol === el.value);
+        if (asset) { row.symbol = ''; row.unit = asset.unit; row.divisor = asset.divisor; row.icon = asset.icon; } else if (el.value !== 'custom') row.symbol = '';
+        renderSectionEditors();
+      }
+      renderStory();
+    });
+  });
+  host.querySelectorAll('[data-action]').forEach(btn => btn.addEventListener('click', () => handleEditorAction(btn.dataset.action, btn.dataset.sectionId, btn.dataset.rowId)));
+}
+function findSection(id) { return settings.sections.find(s => s.id === id); }
+function findRow(sectionId, rowId) { const section = findSection(sectionId); return section && section.rows.find(r => r.id === rowId); }
+function makeId(prefix) { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
+function handleEditorAction(action, sectionId, rowId) {
+  const si = settings.sections.findIndex(s => s.id === sectionId);
+  if (action === 'section-delete') {
+    if (!confirm('این بخش و تمام نرخ‌های داخل آن حذف شود؟')) return;
+    if (si >= 0) settings.sections.splice(si, 1);
+  } else if (action === 'section-up' && si > 0) {
+    [settings.sections[si - 1], settings.sections[si]] = [settings.sections[si], settings.sections[si - 1]];
+  } else if (action === 'section-down' && si >= 0 && si < settings.sections.length - 1) {
+    [settings.sections[si + 1], settings.sections[si]] = [settings.sections[si], settings.sections[si + 1]];
+  } else if (action === 'row-add' && si >= 0) {
+    settings.sections[si].rows.push({ id: makeId('row'), label: 'قیمت جدید', source: 'manual', symbol: '', divisor: 1, icon: 'auto', unit: 'تومان', manualValue: '', visible: true, featured: false });
+  } else if (action.startsWith('row-') && si >= 0) {
+    const ri = settings.sections[si].rows.findIndex(r => r.id === rowId);
+    if (action === 'row-delete' && ri >= 0) settings.sections[si].rows.splice(ri, 1);
+    if (action === 'row-up' && ri > 0) [settings.sections[si].rows[ri - 1], settings.sections[si].rows[ri]] = [settings.sections[si].rows[ri], settings.sections[si].rows[ri - 1]];
+    if (action === 'row-down' && ri >= 0 && ri < settings.sections[si].rows.length - 1) [settings.sections[si].rows[ri + 1], settings.sections[si].rows[ri]] = [settings.sections[si].rows[ri], settings.sections[si].rows[ri + 1]];
+  }
+  renderSectionEditors(); renderStory();
+}
+$('addSection').addEventListener('click', () => {
+  settings.sections.push({ id: makeId('section'), title: 'بخش جدید', visible: true, rows: [
+    { id: makeId('row'), label: 'قیمت جدید', source: 'manual', symbol: '', divisor: 1, icon: 'auto', unit: 'تومان', manualValue: '', visible: true, featured: false }
+  ] });
+  renderSectionEditors(); renderStory();
+});
+
+function formatValue(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'string' && !/^\d+(\.\d+)?$/.test(value.replace(/,/g,''))) return value;
+  return faNumber(String(value).replace(/,/g,''));
+}
+function roundRect(ctx, x, y, w, h, r) {
+  // Match the board renderer and avoid arcTo argument inconsistencies.
+  const width = Math.max(0, Number(w) || 0);
+  const height = Math.max(0, Number(h) || 0);
+  const radius = Math.max(0, Math.min(Number(r) || 0, width / 2, height / 2));
+  const right = x + width;
+  const bottom = y + height;
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(right - radius, y);
+  ctx.quadraticCurveTo(right, y, right, y + radius);
+  ctx.lineTo(right, bottom - radius);
+  ctx.quadraticCurveTo(right, bottom, right - radius, bottom);
+  ctx.lineTo(x + radius, bottom);
+  ctx.quadraticCurveTo(x, bottom, x, bottom - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+function drawText(ctx, text, x, y, size, color, align = 'right', weight = 500, maxWidth) {
+  ctx.fillStyle = color;
+  ctx.font = `${weight} ${size}px Vazirmatn, Tahoma, sans-serif`;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'alphabetic';
+  ctx.direction = align === 'center' ? 'rtl' : 'rtl';
+  ctx.fillText(String(text ?? ''), x, y, maxWidth);
+}
+function drawFitText(ctx, text, x, y, size, color, align = 'center', weight = 500, maxWidth = 500, minSize = 10) {
+  let current = size;
+  const content = String(text ?? '');
+  ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.direction = 'rtl'; ctx.fillStyle = color;
+  while (current > minSize) {
+    ctx.font = `${weight} ${current}px Vazirmatn, Tahoma, sans-serif`;
+    if (ctx.measureText(content).width <= maxWidth) break;
+    current -= 1;
+  }
+  ctx.font = `${weight} ${current}px Vazirmatn, Tahoma, sans-serif`;
+  ctx.fillText(content, x, y, maxWidth);
+}
+function mixWithBlack(hex, factor) {
+  const value = hex.replace('#','');
+  const r = parseInt(value.slice(0,2),16), g = parseInt(value.slice(2,4),16), b = parseInt(value.slice(4,6),16);
+  const f = Math.max(0, Math.min(1, factor));
+  return `rgb(${Math.round(r*f)},${Math.round(g*f)},${Math.round(b*f)})`;
+}
+function activeSections() {
+  return settings.sections.filter(s => s.visible && s.rows.some(r => r.visible));
+}
+function tehranClock() {
+  return new Intl.DateTimeFormat('fa-IR', { timeZone:'Asia/Tehran', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(new Date());
+}
+function gregorianDate() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Tehran', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
+}
+function rateDataFor(rowOrSource, manualValue = '') {
+  const row = typeof rowOrSource === 'object' && rowOrSource ? rowOrSource : { source:rowOrSource, manualValue };
+  const source = String(row.source || '');
+  if (source === 'manual') return { value:row.manualValue || manualValue || '', updatedAt:null, isManual:true, change_pct:0, direction:'flat' };
+  const key = String(row.symbol || source);
+  const item = ['usd','aed','eur','silver','oil'].includes(source) ? sideRates[source] : (livePrices[source] || assetPrices[key]);
+  if (!item) return { value:'', updatedAt:null, isManual:false, change_pct:0, direction:'flat' };
+  const divisor = Math.max(0.0000001, Number(row.divisor) || 1);
+  return { value:Number(item.price) / divisor, updatedAt:item.updated_at ?? item.updatedAt ?? null, isManual:false, change_pct:Number(item.change_pct ?? item.changePercent24h ?? 0), direction:item.direction || 'flat', unit:item.unit || '' };
+}
+function drawAssetIcon(ctx,type,x,y,size=18){if(window.FarzinAssetIcons)window.FarzinAssetIcons.draw(ctx,type,x,y,size,settings.goldColor||'#c8a85c');}
+function assetIcon(item){return window.FarzinAssetIcons?window.FarzinAssetIcons.infer(item):'generic';}
+function historySeries() {
+  const raw = historyPayload?.points || historyPayload?.history || historyPayload?.data || [];
+  return raw.map(point => {
+    let time, value;
+    if (Array.isArray(point)) [time,value] = point;
+    else { time = point.timestamp || point.time || point.date; value = point.price ?? point.value; }
+    const t = typeof time === 'number' ? new Date(time < 1e12 ? time * 1000 : time).getTime() : Date.parse(time);
+    return { time:t, value:Number(value) };
+  }).filter(point => Number.isFinite(point.time) && Number.isFinite(point.value));
+}
+function drawStoryArrow(ctx, x, y, direction) {
+  const color = direction === 'up' ? '#5cc88b' : direction === 'down' ? '#ef7770' : '#a9a18f';
+  ctx.save();ctx.fillStyle=color;ctx.beginPath();
+  if(direction==='up'){ctx.moveTo(x,y-9);ctx.lineTo(x-8,y+5);ctx.lineTo(x+8,y+5);}
+  else if(direction==='down'){ctx.moveTo(x,y+9);ctx.lineTo(x-8,y-5);ctx.lineTo(x+8,y-5);}
+  else {ctx.rect(x-7,y-2,14,4);}
+  ctx.closePath();ctx.fill();ctx.restore();
+}
+function drawStoryChart(ctx, x, y, w, h) {
+  const gold=settings.goldColor||'#c8a85c', muted=settings.mutedColor||'#bcb19b';
+  ctx.save();ctx.fillStyle='#ffffff08';ctx.strokeStyle=`${gold}68`;ctx.lineWidth=1.3;roundRect(ctx,x,y,w,h,16);ctx.fill();ctx.stroke();ctx.restore();
+  drawText(ctx,settings.chartTitle||'نمودار تغییرات طلای ۱۸ عیار',x+w-22,y+31,17,gold,'right',700,w-44);
+  const points=historySeries(),gx=x+24,gy=y+53,gw=w-48,gh=h-92;
+  ctx.save();ctx.strokeStyle='#ffffff13';ctx.lineWidth=1;
+  for(let i=1;i<=3;i++){const yy=gy+gh*i/4;ctx.beginPath();ctx.moveTo(gx,yy);ctx.lineTo(gx+gw,yy);ctx.stroke();}
+  if(points.length>1){
+    const vals=points.map(p=>p.value),min=Math.min(...vals),max=Math.max(...vals),span=max-min||1;
+    const coords=points.map((p,i)=>({x:gx+i/(points.length-1)*gw,y:gy+gh-(p.value-min)/span*gh}));
+    const fill=ctx.createLinearGradient(0,gy,0,gy+gh);fill.addColorStop(0,`${gold}38`);fill.addColorStop(1,`${gold}00`);
+    ctx.beginPath();coords.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.lineTo(gx+gw,gy+gh);ctx.lineTo(gx,gy+gh);ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+    ctx.beginPath();coords.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle=gold;ctx.lineWidth=3;ctx.lineJoin='round';ctx.stroke();
+    const last=coords.at(-1);ctx.fillStyle=gold;ctx.beginPath();ctx.arc(last.x,last.y,5,0,Math.PI*2);ctx.fill();
+    drawText(ctx,faNumber(max),gx+gw-2,gy+15,10,muted,'right',400,150,8);drawText(ctx,faNumber(min),gx+gw-2,gy+gh-4,10,muted,'right',400,150,8);
+  } else drawText(ctx,'نمودار با دریافت نمونه‌های زنده TGJU تکمیل می‌شود',x+w/2,gy+gh/2,13,muted,'center',400,w-50,10);
+  const date=tehranDateParts();
+  drawText(ctx,`${date.weekday} · ${date.date}`,x+w-22,y+h-15,11,gold,'right',600,w*.48,9);
+  drawText(ctx,gregorianDate(),x+22,y+h-15,11,muted,'left',500,w*.42,9);
+  ctx.restore();
+}
+function drawStory(canvas, scale) {
+  const width=1080,height=1920;canvas.width=width*scale;canvas.height=height*scale;
+  const ctx=canvas.getContext('2d');ctx.setTransform(scale,0,0,scale,0,0);
+  const gold=settings.goldColor||'#c8a85c',main=settings.textColor||'#f5f0e5',muted=settings.mutedColor||'#bcb19b',bg=settings.bgColor||'#0b0b0a';
+  const gradient=ctx.createRadialGradient(540,470,40,540,950,1120);gradient.addColorStop(0,mixWithBlack(gold,.22));gradient.addColorStop(.52,mixWithBlack(bg,1));gradient.addColorStop(1,'#050504');ctx.fillStyle=gradient;ctx.fillRect(0,0,width,height);
+  if(logoImage.complete&&logoImage.naturalWidth){const size=810;ctx.save();ctx.globalAlpha=Math.max(0,Math.min(.3,Number(settings.watermarkOpacity||0)/100));ctx.globalCompositeOperation='screen';ctx.drawImage(logoImage,(width-size)/2,615,size,size);ctx.restore();}
+  if(settings.showFrame){ctx.strokeStyle=`${gold}88`;ctx.lineWidth=2;roundRect(ctx,30,30,1020,1860,24);ctx.stroke();ctx.strokeStyle=`${gold}30`;ctx.lineWidth=1;roundRect(ctx,43,43,994,1860,18);ctx.stroke();}
+  if(settings.showLogo&&logoImage.complete&&logoImage.naturalWidth){const size=124;ctx.save();ctx.shadowColor=`${gold}55`;ctx.shadowBlur=22;ctx.drawImage(logoImage,(width-size)/2,54,size,size);ctx.restore();}
+  drawText(ctx,settings.brand||'',540,settings.showLogo?205:136,38,gold,'center',800,900,20);
+  drawText(ctx,settings.subtitle||'',540,settings.showLogo?244:175,19,muted,'center',400,900,12);
+  const cfg=settings.storyConfig||{};
+  if(cfg.showBothDates!==false){const dp=tehranDateParts();ctx.save();ctx.fillStyle='#ffffff08';ctx.strokeStyle=`${gold}65`;roundRect(ctx,770,265,104,46,11);ctx.fill();ctx.stroke();roundRect(ctx,882,265,118,46,11);ctx.fill();ctx.stroke();roundRect(ctx,70,265,230,46,11);ctx.fill();ctx.stroke();ctx.restore();drawText(ctx,dp.weekday,822,295,14,gold,'center',700,94,10);drawText(ctx,dp.date,941,295,16,main,'center',700,108,11);drawText(ctx,`میلادی ${gregorianDate()}`,185,294,15,muted,'center',500,212,11);}
+  const statusY=330;
+  if(cfg.showMarketStatus!==false){const isOpen=latestPayload?.market_open;const statusText=isOpen===true?'بازار باز است':isOpen===false?'بازار بسته است':'وضعیت بازار نامشخص';const dot=isOpen===true?'#62c98e':isOpen===false?'#dc8876':'#b9a66d';ctx.save();ctx.fillStyle='#ffffff0a';ctx.strokeStyle=`${gold}55`;roundRect(ctx,365,statusY-28,350,44,12);ctx.fill();ctx.stroke();ctx.fillStyle=dot;ctx.beginPath();ctx.arc(397,statusY-6,6,0,Math.PI*2);ctx.fill();ctx.restore();drawText(ctx,statusText,565,statusY,16,main,'center',600,270,12);}
+  drawText(ctx,`ساعت تهران ${tehranClock()}`,105,statusY,14,muted,'left',500,220,10);
+  drawText(ctx,globalUpdatedAt?`آخرین نرخ ${formatTehranTime(globalUpdatedAt)}`:'در انتظار دریافت نرخ',975,statusY,14,muted,'right',500,250,10);
+  let cursorY=370;
+  if(cfg.showMainRates!==false){drawText(ctx,settings.mainTitle||'قیمت لحظه‌ای طلا و سکه',995,cursorY+24,23,gold,'right',800,900,15);cursorY+=43;
+    const rows=activeSections().flatMap(sec=>sec.rows.filter(row=>row.visible!==false));const x0=70,w=455,gap=22,cols=2,gapY=7,rowsCount=Math.max(1,Math.ceil(rows.length/cols)),availableH=405,cardH=Math.max(28,Math.min(72,(availableH-gapY*(rowsCount-1))/rowsCount));
+    rows.forEach((row,i)=>{const r=Math.floor(i/cols),c=i%cols,x=x0+c*(w+gap),y=cursorY+r*(cardH+gapY),data=rateDataFor(row),compact=cardH<58;
+      ctx.save();ctx.fillStyle=row.featured?'#c8a6531c':'#ffffff09';ctx.strokeStyle=row.featured?`${gold}bb`:'#9e8b6040';ctx.lineWidth=row.featured?1.8:1;roundRect(ctx,x,y,w,cardH,13);ctx.fill();ctx.stroke();ctx.restore();
+      drawAssetIcon(ctx,assetIcon(row),x+w-23,y+(compact?12:18),compact?13:17);drawText(ctx,row.label,x+w-42,y+(compact?17:25),compact?11:14,muted,'right',600,w-58,8);const val=data.value===''?'—':formatValue(data.value);drawFitText(ctx,val,x+w/2,y+(compact?cardH-8:54),compact?18:23,row.featured?'#f0d17a':main,'center',800,w-35,11);
+      if(!compact)drawText(ctx,row.unit||'',x+16,y+54,10,muted,'left',400,95,8);
+    });cursorY+=415;
+  }
+  if(cfg.showSideRates!==false){drawText(ctx,settings.sideTitle||'ارز و بازارهای جهانی',995,cursorY+19,18,gold,'right',700,900,12);cursorY+=31;
+    const visible=(settings.sideRates||[]).filter(item=>item.visible!==false);const x0=70,gap=12,cols=3,w=(940-gap*(cols-1))/cols,rowsCount=Math.max(1,Math.ceil(visible.length/cols)),gapY=8,availableH=170,h=Math.max(26,Math.min(77,(availableH-gapY*(rowsCount-1))/rowsCount));
+    visible.forEach((item,i)=>{const r=Math.floor(i/cols),c=i%cols,x=x0+c*(w+gap),y=cursorY+r*(h+gapY),data=rateDataFor(item),compact=h<55;ctx.save();ctx.fillStyle='#ffffff09';ctx.strokeStyle=`${gold}55`;ctx.lineWidth=1;roundRect(ctx,x,y,w,h,12);ctx.fill();ctx.stroke();ctx.restore();
+      drawAssetIcon(ctx,assetIcon(item),x+w-20,y+(compact?10:15),compact?12:15);drawText(ctx,item.label,x+w-37,y+(compact?15:23),compact?10:12,muted,'right',600,w-55,8);drawFitText(ctx,data.value===''?'—':formatValue(data.value),x+w/2,y+(compact?h-6:51),compact?16:19,main,'center',700,w-42,10);drawStoryArrow(ctx,x+18,y+(compact?h*.62:43),data.direction);if(!compact)drawText(ctx,data.unit||item.unit||'',x+34,y+55,8,muted,'left',400,90,7);
+    });cursorY+=180;
+  }
+  if(cfg.showGoldChart!==false){const chartY=Math.max(cursorY,1060);drawStoryChart(ctx,70,chartY,940,270);}
+  const contactCards=(settings.contactCards||[]).filter(card=>card.visible!==false&&String(card.value||'').trim());
+  if(cfg.showContacts!==false&&contactCards.length){const y=1375,x0=70,w=940,gap=10,cols=Math.min(3,contactCards.length),rows=Math.ceil(contactCards.length/cols),cw=(w-gap*(cols-1))/cols,ch=Math.min(105,Math.max(64,(215-gap*(rows-1))/rows));contactCards.forEach((card,i)=>{const x=x0+(i%cols)*(cw+gap),cy=y+Math.floor(i/cols)*(ch+gap);ctx.save();ctx.fillStyle='#ffffff09';ctx.strokeStyle=`${gold}65`;ctx.lineWidth=1;roundRect(ctx,x,cy,cw,ch,12);ctx.fill();ctx.stroke();ctx.restore();drawFitText(ctx,card.title||'',x+cw/2,cy+25,13,muted,'center',500,cw-24,9);drawFitText(ctx,card.value||'',x+cw/2,cy+ch-17,17,main,'center',650,cw-26,10);});}
+  const footers=(settings.footerLines||[]).filter(line=>line.visible!==false&&String(line.text||'').trim());if(cfg.showFooter!==false&&footers.length){footers.slice(0,4).forEach((line,i)=>drawFitText(ctx,line.text,540,1732+i*27,13,muted,'center',400,920,9));}
+  drawText(ctx,'تمام نرخ‌ها از TGJU · tgju.org',540,1850,14,gold,'center',600,930,10);drawText(ctx,'FARZIN COIN · منبع داده: شبکه اطلاع‌رسانی طلا و ارز',540,1880,10,'#897d62','center',500,960,8);
+}
+
+function renderStory() {
+  const canvas = $('storyPreview');
+  if (!canvas) return;
+  try { drawStory(canvas, .5); } catch (error) { console.error('Story render failed', error); }
+  $('previewState').textContent = latestPayload ? 'نرخ منبع دریافت شده' : 'در انتظار داده زنده';
+}
+
+function applyPricePayload(payload) {
+  if (!payload || typeof payload !== 'object') return;
+  if (payload.prices && Object.keys(payload.prices).length) livePrices = payload.prices;
+  if (payload.sideRates && Object.keys(payload.sideRates).length) sideRates = payload.sideRates;
+  if (payload.assets && Object.keys(payload.assets).length) assetPrices = payload.assets;
+  if (payload.history) historyPayload = payload.history;
+  latestPayload = payload;
+  globalUpdatedAt = payload.updated_at || null;
+  const latestTime = formatTehranTime(globalUpdatedAt);
+  $('lastUpdateText').textContent = globalUpdatedAt ? latestTime : 'در انتظار زمان منبع TGJU';
+  if (payload.hasPrices) {
+    setConnection(payload.status === 'partial' || payload.status === 'stale' ? 'warning' : 'online',
+      payload.status === 'stale' ? 'نمایش آخرین نرخ معتبر' : 'اتصال به TGJU برقرار است',
+      payload.status === 'partial' ? 'برخی نمادها در پاسخ فعلی TGJU موجود نیستند.' : 'بروزرسانی خودکار نرخ‌ها فعال است.');
+  } else if (payload.status === 'connecting') {
+    setConnection('', 'در حال دریافت نرخ از TGJU', 'سرور محلی آماده است؛ منتظر پاسخ منبع قیمت هستیم.');
+  } else {
+    setConnection('error', 'دریافت نرخ از TGJU ناموفق بود', payload.last_error || Object.values(payload.errors || {}).join(' · ') || 'ارتباط با منبع قیمت برقرار نشد.');
+  }
+  renderStory();
+}
+async function loadInitialPrices() {
+  try {
+    const response = await fetch('/api/dashboard-data', { cache: 'no-store', signal: AbortSignal.timeout(3500) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'دریافت نرخ انجام نشد.');
+    applyPricePayload(data);
+  } catch (error) {
+    setConnection('error', 'سرور محلی در دسترس نیست', error.message || 'پاسخی از سرور دریافت نشد.');
+    console.warn(error);
+  }
+}
+function stopLive(message = 'بروزرسانی خودکار متوقف شد.') {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  setConnection('', 'بروزرسانی خودکار خاموش است', message);
+}
+function startLive() {
+  if (!settings.liveEnabled) { stopLive('برای فعال‌سازی، دریافت خودکار را در تنظیمات روشن کن.'); return; }
+  setConnection(latestPayload?.hasPrices ? 'online' : '', latestPayload?.hasPrices ? 'دریافت خودکار TGJU فعال است' : 'در انتظار اولین نرخ TGJU', 'قیمت‌ها بدون کلید API از TGJU دریافت می‌شوند.');
+}
+let dashboardPollTimer = null;
+let dashboardPollBusy = false;
+async function pollDashboard() {
+  if (!settings.liveEnabled || dashboardPollBusy) return;
+  dashboardPollBusy = true;
+  try {
+    const response = await fetch('/api/dashboard-data', { cache: 'no-store', signal: AbortSignal.timeout(3500) });
+    const data = await response.json();
+    if (response.ok) applyPricePayload(data);
+    else throw new Error(data.error || `HTTP ${response.status}`);
+  } catch (error) {
+    if (!latestPayload?.hasPrices) setConnection('error', 'ارتباط با سرور محلی ناموفق', error.message || 'خطای دریافت داده');
+    else setConnection('warning', 'آخرین نرخ معتبر نمایش داده می‌شود', 'ارتباط با سرور موقتاً قطع شده است.');
+  } finally {
+    dashboardPollBusy = false;
+    clearTimeout(dashboardPollTimer);
+    const seconds = Math.max(20, Number(settings.boardConfig?.refreshSeconds || 30));
+    const delay = latestPayload?.hasPrices ? seconds * 1000 : 2000;
+    dashboardPollTimer = setTimeout(pollDashboard, delay);
+  }
+}
+async function refreshNow() {
+  $('refreshNow').disabled = true; $('refreshNow').textContent = 'در حال دریافت...';
+  try {
+    await fetch('/api/refresh', { method:'POST', cache:'no-store', signal:AbortSignal.timeout(2500) });
+    let data = null;
+    for (let i=0;i<8;i++) {
+      await new Promise(resolve=>setTimeout(resolve,700));
+      const response = await fetch('/api/dashboard-data', { cache:'no-store', signal:AbortSignal.timeout(3500) });
+      data = await response.json();
+      if (data.hasPrices || data.status === 'offline') break;
+    }
+    if (!data) throw new Error('از TGJU پاسخی دریافت نشد.');
+    applyPricePayload(data);
+    showToast(data.hasPrices ? 'آخرین نرخ از TGJU دریافت شد.' : (data.last_error || 'TGJU هنوز نرخ معتبری ارسال نکرده است.'));
+  } catch (error) { showToast(error.message); }
+  finally { $('refreshNow').disabled = false; $('refreshNow').textContent = 'دریافت نرخ همین حالا'; }
+}
+$('refreshNow').addEventListener('click', refreshNow);
+
+function collectSettings() { settings.schemaVersion = 5; return clone(settings); }
+async function saveAll() {
+  $('saveAll').disabled = true; $('saveAll').textContent = 'در حال ذخیره...';
+  try {
+    const response = await fetch('/api/config', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ settings: collectSettings() })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'ذخیره تنظیمات ناموفق بود.');
+    $('keyState').textContent = 'منبع نرخ‌ها TGJU است؛ کلید API لازم نیست.';
+    $('saveMessage').textContent = 'تنظیمات ذخیره شد';
+    showToast('تنظیمات با موفقیت ذخیره شدند.');
+    await loadInitialPrices();
+  } catch (error) { showToast(error.message); $('saveMessage').textContent = 'ذخیره انجام نشد'; }
+  finally { $('saveAll').disabled = false; $('saveAll').textContent = 'ذخیره تنظیمات'; }
+}
+async function saveSettingsOnly() {
+  try {
+    const response = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({settings:collectSettings()}) });
+    const data = await response.json(); if (!response.ok) throw new Error(data.error || 'ذخیره ناموفق');
+    $('saveMessage').textContent = 'ذخیره شد'; showToast('تنظیمات روی همین کامپیوتر ذخیره شد.');
+  } catch (error) { showToast(error.message); }
+}
+$('saveAll').addEventListener('click', saveAll);
+$('saveSettings').addEventListener('click', saveSettingsOnly);
+$('clearKey')?.addEventListener('click', () => showToast('برای دریافت نرخ TGJU هیچ کلیدی ذخیره نمی‌شود.'));
+
+$('logoUpload').addEventListener('change', async event => {
+  const file = event.target.files && event.target.files[0]; if (!file) return;
+  if (file.type !== 'image/png') { showToast('برای حفظ شفافیت، فقط فایل PNG انتخاب کن.'); event.target.value = ''; return; }
+  if (file.size > 12*1024*1024) { showToast('حجم لوگو باید کمتر از ۱۲ مگابایت باشد.'); event.target.value = ''; return; }
+  const dataUrl = await new Promise((resolve,reject) => { const reader = new FileReader(); reader.onload=()=>resolve(reader.result); reader.onerror=reject; reader.readAsDataURL(file); });
+  try {
+    const response = await fetch('/api/logo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dataUrl})});
+    const data = await response.json(); if (!response.ok) throw new Error(data.error || 'آپلود لوگو ناموفق بود.');
+    logoImage = new Image(); logoImage.onload = renderStory; logoImage.src = data.url;
+    $('adminLogo').src = data.url; $('logoThumb').src = data.url;
+    showToast('لوگوی جدید ذخیره شد.');
+  } catch(error) { showToast(error.message); }
+  event.target.value = '';
+});
+
+$('exportPng').addEventListener('click', async () => {
+  const button = $('exportPng'); const oldText = button.textContent;
+  button.disabled = true; button.textContent = 'در حال آماده‌سازی PNG...';
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    if (logoImage && !logoImage.complete) await new Promise(resolve => { logoImage.onload=resolve; logoImage.onerror=resolve; });
+    const scale = Math.max(1, Math.min(3, Number(settings.exportScale) || 1));
+    const canvas = document.createElement('canvas'); drawStory(canvas, scale);
+    const blob = await new Promise((resolve,reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('ساخت PNG ناموفق بود.')), 'image/png'));
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+    a.href = url; a.download = `farzin-story-${scale}x-${stamp}.png`; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 3000); showToast(`تصویر PNG با وضوح ${1080*scale}×${1920*scale} آماده شد.`);
+  } catch(error) { showToast(error.message || 'خطا در ساخت تصویر.'); }
+  finally { button.disabled=false; button.textContent=oldText; }
+});
+
+$('exportConfig').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(collectSettings(), null, 2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='farzin-story-settings.json'; a.click(); URL.revokeObjectURL(url);
+});
+$('importConfig').addEventListener('change', async event => {
+  const file=event.target.files && event.target.files[0]; if(!file)return;
+  try {
+    const parsed=JSON.parse(await file.text());
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.sections)) throw new Error('فایل تنظیمات معتبر نیست.');
+    settings=normalizeSettings(parsed);
+    renderSectionEditors(); loadSettingsIntoForm(); await saveSettingsOnly(); showToast('تنظیمات بازیابی شد.');
+  } catch(error) { showToast(error.message); }
+  event.target.value='';
+});
+$('resetConfig').addEventListener('click', async () => {
+  if (!confirm('تمام تنظیمات ظاهری و محتوایی به حالت اولیه برگردند؟ کلید API حذف نمی‌شود.')) return;
+  settings=normalizeSettings(clone(DEFAULT_SETTINGS)); loadSettingsIntoForm(); await saveSettingsOnly();
+});
+
+async function init() {
+  bindBasics();
+  try {
+    const response = await fetch('/api/config',{cache:'no-store', signal:AbortSignal.timeout(3500)});
+    const data = await response.json();
+    if (data.settings) settings=normalizeSettings(data.settings);
+  } catch(error) { console.warn('Could not load local settings',error); }
+  $('keyState').textContent='منبع نرخ‌ها: TGJU · بدون نیاز به کلید API';
+  const apiKeyInput=$('apiKey'); if(apiKeyInput){apiKeyInput.disabled=true;apiKeyInput.placeholder='برای دریافت نرخ از TGJU نیازی به کلید نیست؛ این بخش غیرفعال است.';}
+  const clearKey=$('clearKey'); if(clearKey)clearKey.hidden=true;
+  $('saveAll').textContent='ذخیره تنظیمات';
+  loadSettingsIntoForm();
+  await loadInitialPrices();
+  startLive();
+  dashboardPollTimer=setTimeout(pollDashboard, latestPayload?.hasPrices ? Math.max(20,Number(settings.boardConfig?.refreshSeconds||30))*1000 : 1500);
+  setInterval(renderStory, 1000);
+}
+init();

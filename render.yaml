@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: farzin-story-studio
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: HOST
+        value: 0.0.0.0
+      - key: FARZIN_DATA_DIR
+        value: /data
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASSWORD
+        generateValue: true
+    disk:
+      name: farzin-data
+      mountPath: /data
+      sizeGB: 1

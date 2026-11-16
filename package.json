@@ -1,0 +1,13 @@
+{
+  "name": "farzin-story-studio",
+  "version": "7.0.0",
+  "private": true,
+  "description": "Farzin Story Studio with expandable TGJU asset catalogue, custom market symbols, per-asset pictogram icons, and production deployment templates",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node scripts/smoke-test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

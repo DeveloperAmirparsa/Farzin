@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#080807">
+<title>تابلو قیمت فرزین</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050504;color:#f5f0e5;font-family:Vazirmatn,Tahoma,sans-serif}
+#boardCanvas{display:block;width:100vw;height:100vh;background:#050504;image-rendering:auto}
+.board-controls{position:fixed;z-index:5;top:14px;left:14px;display:flex;align-items:center;gap:9px;padding:9px 12px;border:1px solid #8b713d88;border-radius:13px;background:#11100ddd;backdrop-filter:blur(12px);transition:opacity .35s;box-shadow:0 8px 28px #0007}
+.board-controls button,.board-controls a{border:1px solid #806639;border-radius:8px;background:#201b10;color:#ead39a;font:600 12px Vazirmatn,Tahoma,sans-serif;padding:8px 12px;text-decoration:none;cursor:pointer}.source-credit{position:fixed;z-index:3;bottom:4px;left:10px;padding:2px 6px;border:1px solid #8b713d66;border-radius:6px;background:#0b0a08c9;color:#ddc37e;font:8px Vazirmatn,Tahoma,sans-serif;text-decoration:none;opacity:.8}.source-credit:hover{opacity:1}
+#boardStatus{font-size:11px;color:#d1c6ad;white-space:nowrap}.live-dot{width:8px;height:8px;border-radius:50%;background:#79c48a;box-shadow:0 0 12px #79c48a;display:inline-block;margin-left:5px}.live-dot.error{background:#d77a70;box-shadow:0 0 12px #d77a70}
+.board-controls.hidden{opacity:0;pointer-events:none}.board-controls:hover{opacity:1;pointer-events:auto}
+@media(max-width:700px){.board-controls{top:6px;left:6px;padding:5px;gap:5px}.board-controls button,.board-controls a{font-size:10px;padding:6px 8px}#boardStatus{font-size:9px}}
+</style>
+</head>
+<body>
+<canvas id="boardCanvas" width="1920" height="1080" aria-label="تابلو زنده قیمت طلا و سکه فرزین"></canvas>
+<div class="board-controls" id="boardControls">
+  <span class="live-dot" id="liveDot"></span><span id="boardStatus">در حال راه‌اندازی تابلو…</span>
+  <button id="fullscreenBtn" type="button">تمام‌صفحه</button>
+  <button id="refreshBtn" type="button">بروزرسانی همین حالا</button>
+  <a href="/board-config" target="_blank" rel="noreferrer">کانفیگ تابلو</a>
+  <a href="https://www.tgju.org/" target="_blank" rel="noreferrer">TGJU</a>
+  <a href="/" target="_blank" rel="noreferrer">استودیو استوری</a>
+</div>
+<a class="source-credit" href="https://www.tgju.org/" target="_blank" rel="noopener noreferrer">منبع تمام قیمت‌ها · TGJU</a>
+<script>
+(function(){
+  window.__farzinBoardBooted=false;
+  window.__farzinBoardBootTimer=setTimeout(function(){
+    if(window.__farzinBoardBooted)return;
+    var status=document.getElementById('boardStatus');
+    if(status)status.textContent='فایل برنامه تابلو اجرا نشد؛ صفحه را با Ctrl+F5 تازه‌سازی کن و مطمئن شو از آدرس سرور محلی باز شده است.';
+  },7000);
+  window.addEventListener('error',function(event){
+    if(event.target&&event.target.tagName==='SCRIPT'){
+      var status=document.getElementById('boardStatus');
+      if(status)status.textContent='بارگذاری فایل تابلو ناموفق بود: '+(event.target.src||'فایل جاوااسکریپت');
+    }
+  },true);
+  if(!window.structuredClone){window.structuredClone=function(value){return JSON.parse(JSON.stringify(value));};}
+})();
+</script>
+<script src="/asset-catalog.js"></script><script src="/asset-icons.js"></script><script src="/board.js" onerror="document.getElementById('boardStatus').textContent='فایل board.js از سرور دریافت نشد؛ پوشه نسخه را بررسی کن.'"></script>
+</body>
+</html>
