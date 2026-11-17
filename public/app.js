@@ -26,34 +26,34 @@ const DEFAULT_SETTINGS = {
   showDate: true, showUpdate: true, showLogo: true,
   bgColor: '#0b0b0a', goldColor: '#c8a85c', textColor: '#f5f0e5', mutedColor: '#bcb19b',
   watermarkOpacity: 8, exportScale: 1, showFrame: true, showAttribution: true, liveEnabled: true,
-  schemaVersion: 4,
+  schemaVersion: 6,
   sideRates: [
-    { id:'usd-side', label:'دلار', source:'usd', unit:'تومان', manualValue:'', visible:true },
-    { id:'aed-side', label:'درهم', source:'aed', unit:'تومان', manualValue:'', visible:true },
-    { id:'eur-side', label:'یورو', source:'eur', unit:'تومان', manualValue:'', visible:true },
-    { id:'silver-side', label:'نقره ۹۹۹', source:'silver', unit:'تومان / گرم', manualValue:'', visible:true },
-    { id:'oil-side', label:'نفت برنت', source:'oil', unit:'دلار / بشکه', manualValue:'', visible:true }
+    { id:'usd-side', label:'دلار', source:'usd', unit:'تومان', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+    { id:'aed-side', label:'درهم', source:'aed', unit:'تومان', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+    { id:'eur-side', label:'یورو', source:'eur', unit:'تومان', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+    { id:'silver-side', label:'نقره ۹۹۹', source:'silver', unit:'تومان / گرم', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+    { id:'oil-side', label:'نفت برنت', source:'oil', unit:'دلار / بشکه', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 }
   ],
   boardConfig: {
     refreshSeconds:30, showMainRates:true, showSideRates:true, showMarketStatus:true, showClock:true,
     showJalaliDate:true, showGregorianDate:true, showGoldChart:true, showContacts:true, showFooter:true,
     showNewsTicker:true, tickerLabel:'آخرین اخبار اقتصادی',
     newsFeedUrl:'https://news.google.com/rss/search?q=%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF+%D8%A7%DB%8C%D8%B1%D8%A7%D9%86+OR+%D8%B7%D9%84%D8%A7+OR+%D8%A7%D8%B1%D8%B2+OR+%D9%86%D9%81%D8%AA&hl=fa&gl=IR&ceid=IR:fa',
-    newsRefreshSeconds:180, tickerSpeed:65, tickerFontSize:17, chartRange:'1d', mainColumns:2, sidePanelPercent:27, mainCardGap:14, mainFontScale:1, sideFontScale:1
+    newsRefreshSeconds:180, tickerSpeed:65, tickerFontSize:17, chartRange:'1d', mainColumns:2, sidePanelPercent:27, mainCardGap:18, mainFontScale:1.1, sideFontScale:1.1, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0, cardScrollSpeed:32
   },
   storyConfig: { showMainRates:true, showSideRates:true, showMarketStatus:true, showGoldChart:true, showBothDates:true, showContacts:true, showFooter:true },
   sections: [
     { id:'main-prices', title:'نرخ طلا و سکه', visible:true, rows: [
-      { id:'mazaneh-main', label:'مظنه', source:'mazaneh', unit:'تومان', manualValue:'', visible:true, featured:true },
-      { id:'gram18-main', label:'گرم طلای ۱۸ عیار', source:'gram18', unit:'تومان', manualValue:'', visible:true, featured:true },
-      { id:'emami86-main', label:'سکه امامی ۸۶', source:'coin_full', unit:'تومان', manualValue:'', visible:true, featured:true },
-      { id:'oldcoin-main', label:'سکه قدیم', source:'coin_old', unit:'تومان', manualValue:'', visible:true, featured:false },
-      { id:'half86-main', label:'نیم سکه ۸۶', source:'coin_half', unit:'تومان', manualValue:'', visible:true, featured:false },
-      { id:'quarter86-main', label:'ربع سکه ۸۶', source:'coin_quarter', unit:'تومان', manualValue:'', visible:true, featured:false },
-      { id:'gramcoin-main', label:'سکه یک گرمی', source:'coin_gerami', unit:'تومان', manualValue:'', visible:true, featured:false },
-      { id:'gram24-main', label:'طلای ۲۴ عیار', source:'gram24', unit:'تومان', manualValue:'', visible:true, featured:false },
-      { id:'gram21-main', label:'طلای ۲۱ عیار', source:'gram21', unit:'تومان', manualValue:'', visible:true, featured:false },
-      { id:'ounce-main', label:'انس طلا', source:'ounce', unit:'دلار', manualValue:'', visible:true, featured:false }
+      { id:'mazaneh-main', label:'مظنه', source:'mazaneh', unit:'تومان', manualValue:'', visible:true, featured:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+      { id:'gram18-main', label:'گرم طلای ۱۸ عیار', source:'gram18', unit:'تومان', manualValue:'', visible:true, featured:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+      { id:'emami86-main', label:'سکه امامی ۸۶', source:'coin_full', unit:'تومان', manualValue:'', visible:true, featured:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+      { id:'oldcoin-main', label:'سکه قدیم', source:'coin_old', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+      { id:'half86-main', label:'نیم سکه ۸۶', source:'coin_half', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+      { id:'quarter86-main', label:'ربع سکه ۸۶', source:'coin_quarter', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+      { id:'gramcoin-main', label:'سکه یک گرمی', source:'coin_gerami', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+      { id:'gram24-main', label:'طلای ۲۴ عیار', source:'gram24', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+      { id:'gram21-main', label:'طلای ۲۱ عیار', source:'gram21', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+      { id:'ounce-main', label:'انس طلا', source:'ounce', unit:'دلار', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 }
     ]}
   ]};
 
@@ -77,7 +77,7 @@ function faNumber(value) {
   if (value === null || value === undefined || value === '') return '—';
   const n = Number(value);
   if (!Number.isFinite(n)) return String(value);
-  return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(n);
+  return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).formatToParts(n).map(part => part.type === 'group' ? ',' : part.type === 'decimal' ? '.' : part.value).join('');
 }
 function tehranDateParts() {
   const date = new Date();
@@ -120,6 +120,11 @@ function normalizeSettings(raw = {}) {
     merged.schemaVersion = 4;
   }
   if (!Array.isArray(merged.sideRates)) merged.sideRates = clone(DEFAULT_SETTINGS.sideRates);
+  for (const row of [...merged.sections.flatMap(section => section.rows || []), ...merged.sideRates]) {
+    row.showTwoPrices = row.showTwoPrices !== false;
+    row.buySpreadPercent = Number(row.buySpreadPercent) || 0;
+    row.sellSpreadPercent = Number(row.sellSpreadPercent) || 0;
+  }
   merged.boardConfig = { ...clone(DEFAULT_SETTINGS.boardConfig), ...(merged.boardConfig || {}) };
   merged.storyConfig = { ...clone(DEFAULT_SETTINGS.storyConfig), ...(merged.storyConfig || {}) };
   return merged;
@@ -290,6 +295,11 @@ function renderSectionEditors() {
             <label class="mini-check"><input type="checkbox" data-row-field="visible" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" ${row.visible ? 'checked' : ''}> نمایش</label>
             <label class="mini-check"><input type="checkbox" data-row-field="featured" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" ${row.featured ? 'checked' : ''}> طلایی</label>
           </div>
+          <div class="row-quote-options">
+            <label class="mini-check"><input type="checkbox" data-row-field="showTwoPrices" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" ${row.showTwoPrices !== false ? 'checked' : ''}> نمایش خرید و فروش</label>
+            <label class="field"><span>حاشیه خرید (%)</span><input class="row-input" type="number" min="0" max="20" step="0.05" data-row-field="buySpreadPercent" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" value="${esc(row.buySpreadPercent ?? 0)}"></label>
+            <label class="field"><span>حاشیه فروش (%)</span><input class="row-input" type="number" min="0" max="20" step="0.05" data-row-field="sellSpreadPercent" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" value="${esc(row.sellSpreadPercent ?? 0)}"></label>
+          </div>
         </div>`).join('')}
     </div>`).join('');
 
@@ -327,7 +337,7 @@ function handleEditorAction(action, sectionId, rowId) {
   } else if (action === 'section-down' && si >= 0 && si < settings.sections.length - 1) {
     [settings.sections[si + 1], settings.sections[si]] = [settings.sections[si], settings.sections[si + 1]];
   } else if (action === 'row-add' && si >= 0) {
-    settings.sections[si].rows.push({ id: makeId('row'), label: 'قیمت جدید', source: 'manual', symbol: '', divisor: 1, icon: 'auto', unit: 'تومان', manualValue: '', visible: true, featured: false });
+    settings.sections[si].rows.push({ id: makeId('row'), label: 'قیمت جدید', source: 'manual', symbol: '', divisor: 1, icon: 'auto', unit: 'تومان', manualValue: '', visible: true, featured: false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 });
   } else if (action.startsWith('row-') && si >= 0) {
     const ri = settings.sections[si].rows.findIndex(r => r.id === rowId);
     if (action === 'row-delete' && ri >= 0) settings.sections[si].rows.splice(ri, 1);
@@ -338,7 +348,7 @@ function handleEditorAction(action, sectionId, rowId) {
 }
 $('addSection').addEventListener('click', () => {
   settings.sections.push({ id: makeId('section'), title: 'بخش جدید', visible: true, rows: [
-    { id: makeId('row'), label: 'قیمت جدید', source: 'manual', symbol: '', divisor: 1, icon: 'auto', unit: 'تومان', manualValue: '', visible: true, featured: false }
+    { id: makeId('row'), label: 'قیمت جدید', source: 'manual', symbol: '', divisor: 1, icon: 'auto', unit: 'تومان', manualValue: '', visible: true, featured: false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 }
   ] });
   renderSectionEditors(); renderStory();
 });
@@ -376,16 +386,38 @@ function drawText(ctx, text, x, y, size, color, align = 'right', weight = 500, m
   ctx.fillText(String(text ?? ''), x, y, maxWidth);
 }
 function drawFitText(ctx, text, x, y, size, color, align = 'center', weight = 500, maxWidth = 500, minSize = 10) {
-  let current = size;
+  let current = Math.max(minSize, size);
   const content = String(text ?? '');
   ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.direction = 'rtl'; ctx.fillStyle = color;
-  while (current > minSize) {
+  while (true) {
     ctx.font = `${weight} ${current}px Vazirmatn, Tahoma, sans-serif`;
-    if (ctx.measureText(content).width <= maxWidth) break;
-    current -= 1;
+    if (ctx.measureText(content).width <= maxWidth || current <= minSize) break;
+    current = Math.max(minSize, current - 1);
   }
   ctx.font = `${weight} ${current}px Vazirmatn, Tahoma, sans-serif`;
   ctx.fillText(content, x, y, maxWidth);
+}
+function drawStoryPrice(ctx, value, unit, centerX, y, size, color, maxWidth, minSize = 12) {
+  const number = String(value ?? '—'), label = String(unit || '').trim();
+  let current = Math.max(minSize, size), numberWidth = 0, unitWidth = 0, unitSize = 0, gap = 0;
+  while (true) {
+    ctx.font = `800 ${current}px Vazirmatn, Tahoma, sans-serif`;
+    numberWidth = ctx.measureText(number).width;
+    unitSize = label ? Math.max(9, Math.round(current * .42)) : 0;
+    ctx.font = `500 ${unitSize || current}px Vazirmatn, Tahoma, sans-serif`;
+    unitWidth = label ? ctx.measureText(label).width : 0;
+    gap = label ? Math.max(6, Math.round(current * .2)) : 0;
+    if (numberWidth + unitWidth + gap <= maxWidth || current <= minSize) break;
+    current = Math.max(minSize, current - 1);
+  }
+  const numberX = centerX + (unitWidth + gap) / 2;
+  ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.direction = 'rtl';
+  ctx.font = `800 ${current}px Vazirmatn, Tahoma, sans-serif`;
+  ctx.fillText(number, numberX, y);
+  if (label) {
+    ctx.fillStyle = '#bcb19b'; ctx.font = `500 ${unitSize}px Vazirmatn, Tahoma, sans-serif`;
+    ctx.fillText(label, centerX - (numberWidth + gap) / 2 - unitWidth / 2, y);
+  }
 }
 function mixWithBlack(hex, factor) {
   const value = hex.replace('#','');
@@ -399,30 +431,40 @@ function activeSections() {
 function tehranClock() {
   return new Intl.DateTimeFormat('fa-IR', { timeZone:'Asia/Tehran', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(new Date());
 }
-function gregorianDate() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Tehran', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
-}
 function rateDataFor(rowOrSource, manualValue = '') {
   const row = typeof rowOrSource === 'object' && rowOrSource ? rowOrSource : { source:rowOrSource, manualValue };
   const source = String(row.source || '');
-  if (source === 'manual') return { value:row.manualValue || manualValue || '', updatedAt:null, isManual:true, change_pct:0, direction:'flat' };
+  if (source === 'manual') return { value:row.manualValue || manualValue || '', updatedAt:null, isManual:true, change_pct:null, direction:null };
   const key = String(row.symbol || source);
   const item = ['usd','aed','eur','silver','oil'].includes(source) ? sideRates[source] : (livePrices[source] || assetPrices[key]);
-  if (!item) return { value:'', updatedAt:null, isManual:false, change_pct:0, direction:'flat' };
+  if (!item) return { value:'', updatedAt:null, isManual:false, change_pct:null, direction:null };
   const divisor = Math.max(0.0000001, Number(row.divisor) || 1);
-  return { value:Number(item.price) / divisor, updatedAt:item.updated_at ?? item.updatedAt ?? null, isManual:false, change_pct:Number(item.change_pct ?? item.changePercent24h ?? 0), direction:item.direction || 'flat', unit:item.unit || '' };
+  return { value:Number(item.price) / divisor, updatedAt:item.source_timestamp ?? item.updated_at ?? item.updatedAt ?? null, isManual:false, change_pct:item.change_pct ?? item.changePercent24h ?? null, direction:item.direction || null, unit:item.unit || '', source:item.source || null, receivedAt:item.received_at || null };
+}
+function storyQuotePrices(value, row = {}) {
+  if (value === null || value === undefined || value === '') return { buy:'-', sell:'-' };
+  const price = Number(value);
+  if (!Number.isFinite(price)) return { buy:'-', sell:'-' };
+  const buy = Math.max(0, Math.min(20, Number(row.buySpreadPercent) || 0));
+  const sell = Math.max(0, Math.min(20, Number(row.sellSpreadPercent) || 0));
+  return { buy:faNumber(price * (1 - buy / 100)), sell:faNumber(price * (1 + sell / 100)) };
 }
 function drawAssetIcon(ctx,type,x,y,size=18){if(window.FarzinAssetIcons)window.FarzinAssetIcons.draw(ctx,type,x,y,size,settings.goldColor||'#c8a85c');}
 function assetIcon(item){return window.FarzinAssetIcons?window.FarzinAssetIcons.infer(item):'generic';}
 function historySeries() {
   const raw = historyPayload?.points || historyPayload?.history || historyPayload?.data || [];
-  return raw.map(point => {
+  const range = ({'1d':86400000,'30d':30*86400000,'90d':90*86400000,'1y':365*86400000})[settings.boardConfig?.chartRange || '1d'] || 86400000;
+  const cutoff = Date.now() - range;
+  const unique = new Map();
+  raw.forEach(point => {
     let time, value;
     if (Array.isArray(point)) [time,value] = point;
     else { time = point.timestamp || point.time || point.date; value = point.price ?? point.value; }
     const t = typeof time === 'number' ? new Date(time < 1e12 ? time * 1000 : time).getTime() : Date.parse(time);
-    return { time:t, value:Number(value) };
-  }).filter(point => Number.isFinite(point.time) && Number.isFinite(point.value));
+    const numeric = Number(value);
+    if (Number.isFinite(t) && t <= Date.now() && t >= cutoff && Number.isFinite(numeric) && numeric > 0) unique.set(t, { time:t, value:numeric });
+  });
+  return [...unique.values()].sort((a,b)=>a.time-b.time);
 }
 function drawStoryArrow(ctx, x, y, direction) {
   const color = direction === 'up' ? '#5cc88b' : direction === 'down' ? '#ef7770' : '#a9a18f';
@@ -435,8 +477,8 @@ function drawStoryArrow(ctx, x, y, direction) {
 function drawStoryChart(ctx, x, y, w, h) {
   const gold=settings.goldColor||'#c8a85c', muted=settings.mutedColor||'#bcb19b';
   ctx.save();ctx.fillStyle='#ffffff08';ctx.strokeStyle=`${gold}68`;ctx.lineWidth=1.3;roundRect(ctx,x,y,w,h,16);ctx.fill();ctx.stroke();ctx.restore();
-  drawText(ctx,settings.chartTitle||'نمودار تغییرات طلای ۱۸ عیار',x+w-22,y+31,17,gold,'right',700,w-44);
-  const points=historySeries(),gx=x+24,gy=y+53,gw=w-48,gh=h-92;
+  drawText(ctx,settings.chartTitle||'نمودار تغییرات طلای ۱۸ عیار',x+w-22,y+36,22,gold,'right',700,w-44);
+  const points=historySeries(),gx=x+24,gy=y+62,gw=w-48,gh=h-102;
   ctx.save();ctx.strokeStyle='#ffffff13';ctx.lineWidth=1;
   for(let i=1;i<=3;i++){const yy=gy+gh*i/4;ctx.beginPath();ctx.moveTo(gx,yy);ctx.lineTo(gx+gw,yy);ctx.stroke();}
   if(points.length>1){
@@ -446,12 +488,11 @@ function drawStoryChart(ctx, x, y, w, h) {
     ctx.beginPath();coords.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.lineTo(gx+gw,gy+gh);ctx.lineTo(gx,gy+gh);ctx.closePath();ctx.fillStyle=fill;ctx.fill();
     ctx.beginPath();coords.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle=gold;ctx.lineWidth=3;ctx.lineJoin='round';ctx.stroke();
     const last=coords.at(-1);ctx.fillStyle=gold;ctx.beginPath();ctx.arc(last.x,last.y,5,0,Math.PI*2);ctx.fill();
-    drawText(ctx,faNumber(max),gx+gw-2,gy+15,10,muted,'right',400,150,8);drawText(ctx,faNumber(min),gx+gw-2,gy+gh-4,10,muted,'right',400,150,8);
-  } else drawText(ctx,'نمودار با دریافت نمونه‌های زنده TGJU تکمیل می‌شود',x+w/2,gy+gh/2,13,muted,'center',400,w-50,10);
+    drawText(ctx,faNumber(max),gx+gw-2,gy+18,14,muted,'right',500,180,10);drawText(ctx,faNumber(min),gx+gw-2,gy+gh-4,14,muted,'right',500,180,10);
+  } else drawText(ctx,'اطلاعات تاریخی کافی نیست',x+w/2,gy+gh/2,17,muted,'center',500,w-50,12);
   const date=tehranDateParts();
-  drawText(ctx,`${date.weekday} · ${date.date}`,x+w-22,y+h-15,11,gold,'right',600,w*.48,9);
-  drawText(ctx,gregorianDate(),x+22,y+h-15,11,muted,'left',500,w*.42,9);
-  ctx.restore();
+  drawText(ctx,`${date.weekday} · ${date.date}`,x+w-22,y+h-15,15,gold,'right',600,w*.48,11);
+     ctx.restore();
 }
 function drawStory(canvas, scale) {
   const width=1080,height=1920;canvas.width=width*scale;canvas.height=height*scale;
@@ -460,35 +501,65 @@ function drawStory(canvas, scale) {
   const gradient=ctx.createRadialGradient(540,470,40,540,950,1120);gradient.addColorStop(0,mixWithBlack(gold,.22));gradient.addColorStop(.52,mixWithBlack(bg,1));gradient.addColorStop(1,'#050504');ctx.fillStyle=gradient;ctx.fillRect(0,0,width,height);
   if(logoImage.complete&&logoImage.naturalWidth){const size=810;ctx.save();ctx.globalAlpha=Math.max(0,Math.min(.3,Number(settings.watermarkOpacity||0)/100));ctx.globalCompositeOperation='screen';ctx.drawImage(logoImage,(width-size)/2,615,size,size);ctx.restore();}
   if(settings.showFrame){ctx.strokeStyle=`${gold}88`;ctx.lineWidth=2;roundRect(ctx,30,30,1020,1860,24);ctx.stroke();ctx.strokeStyle=`${gold}30`;ctx.lineWidth=1;roundRect(ctx,43,43,994,1860,18);ctx.stroke();}
-  if(settings.showLogo&&logoImage.complete&&logoImage.naturalWidth){const size=124;ctx.save();ctx.shadowColor=`${gold}55`;ctx.shadowBlur=22;ctx.drawImage(logoImage,(width-size)/2,54,size,size);ctx.restore();}
-  drawText(ctx,settings.brand||'',540,settings.showLogo?205:136,38,gold,'center',800,900,20);
-  drawText(ctx,settings.subtitle||'',540,settings.showLogo?244:175,19,muted,'center',400,900,12);
+  if(settings.showLogo&&logoImage.complete&&logoImage.naturalWidth){
+    const size=68,gap=20,brand=String(settings.brand||'');ctx.font='800 44px Vazirmatn, Tahoma, sans-serif';
+    const brandW=Math.min(790,ctx.measureText(brand).width),groupW=brandW+gap+size,left=(width-groupW)/2;
+    ctx.save();ctx.shadowColor=`${gold}55`;ctx.shadowBlur=18;ctx.drawImage(logoImage,left+brandW+gap,54,size,size);ctx.restore();
+    drawFitText(ctx,brand,left+brandW/2,101,44,gold,'center',800,brandW,24);
+  } else drawText(ctx,settings.brand||'',540,128,44,gold,'center',800,900,24);
+  drawText(ctx,settings.subtitle||'',540,settings.showLogo?154:169,21,muted,'center',500,920,15);
   const cfg=settings.storyConfig||{};
-  if(cfg.showBothDates!==false){const dp=tehranDateParts();ctx.save();ctx.fillStyle='#ffffff08';ctx.strokeStyle=`${gold}65`;roundRect(ctx,770,265,104,46,11);ctx.fill();ctx.stroke();roundRect(ctx,882,265,118,46,11);ctx.fill();ctx.stroke();roundRect(ctx,70,265,230,46,11);ctx.fill();ctx.stroke();ctx.restore();drawText(ctx,dp.weekday,822,295,14,gold,'center',700,94,10);drawText(ctx,dp.date,941,295,16,main,'center',700,108,11);drawText(ctx,`میلادی ${gregorianDate()}`,185,294,15,muted,'center',500,212,11);}
-  const statusY=330;
-  if(cfg.showMarketStatus!==false){const isOpen=latestPayload?.market_open;const statusText=isOpen===true?'بازار باز است':isOpen===false?'بازار بسته است':'وضعیت بازار نامشخص';const dot=isOpen===true?'#62c98e':isOpen===false?'#dc8876':'#b9a66d';ctx.save();ctx.fillStyle='#ffffff0a';ctx.strokeStyle=`${gold}55`;roundRect(ctx,365,statusY-28,350,44,12);ctx.fill();ctx.stroke();ctx.fillStyle=dot;ctx.beginPath();ctx.arc(397,statusY-6,6,0,Math.PI*2);ctx.fill();ctx.restore();drawText(ctx,statusText,565,statusY,16,main,'center',600,270,12);}
-  drawText(ctx,`ساعت تهران ${tehranClock()}`,105,statusY,14,muted,'left',500,220,10);
-  drawText(ctx,globalUpdatedAt?`آخرین نرخ ${formatTehranTime(globalUpdatedAt)}`:'در انتظار دریافت نرخ',975,statusY,14,muted,'right',500,250,10);
-  let cursorY=370;
-  if(cfg.showMainRates!==false){drawText(ctx,settings.mainTitle||'قیمت لحظه‌ای طلا و سکه',995,cursorY+24,23,gold,'right',800,900,15);cursorY+=43;
-    const rows=activeSections().flatMap(sec=>sec.rows.filter(row=>row.visible!==false));const x0=70,w=455,gap=22,cols=2,gapY=7,rowsCount=Math.max(1,Math.ceil(rows.length/cols)),availableH=405,cardH=Math.max(28,Math.min(72,(availableH-gapY*(rowsCount-1))/rowsCount));
-    rows.forEach((row,i)=>{const r=Math.floor(i/cols),c=i%cols,x=x0+c*(w+gap),y=cursorY+r*(cardH+gapY),data=rateDataFor(row),compact=cardH<58;
-      ctx.save();ctx.fillStyle=row.featured?'#c8a6531c':'#ffffff09';ctx.strokeStyle=row.featured?`${gold}bb`:'#9e8b6040';ctx.lineWidth=row.featured?1.8:1;roundRect(ctx,x,y,w,cardH,13);ctx.fill();ctx.stroke();ctx.restore();
-      drawAssetIcon(ctx,assetIcon(row),x+w-23,y+(compact?12:18),compact?13:17);drawText(ctx,row.label,x+w-42,y+(compact?17:25),compact?11:14,muted,'right',600,w-58,8);const val=data.value===''?'—':formatValue(data.value);drawFitText(ctx,val,x+w/2,y+(compact?cardH-8:54),compact?18:23,row.featured?'#f0d17a':main,'center',800,w-35,11);
-      if(!compact)drawText(ctx,row.unit||'',x+16,y+54,10,muted,'left',400,95,8);
-    });cursorY+=415;
+  const headerY=settings.showLogo?246:196,headerCellW=455,headerCellH=58,headerGapX=30,headerGapY=10,headerX=70;
+  const dp=tehranDateParts(),isOpen=latestPayload?.market_open,headerCards=[];
+   if(cfg.showBothDates!==false)headerCards.push({primary:`${dp.weekday} · ${dp.date}`,color:gold});
+  if(cfg.showMarketStatus!==false)headerCards.push({primary:isOpen===true?'بازار باز است':isOpen===false?'بازار بسته است':'وضعیت بازار نامشخص',color:isOpen===true?'#62c98e':isOpen===false?'#dc8876':'#b9a66d'});
+  headerCards.push({primary:`ساعت تهران ${tehranClock()}`,color:muted},{primary:globalUpdatedAt?`آخرین نرخ ${formatTehranTime(globalUpdatedAt)}`:'در انتظار دریافت نرخ',color:muted});
+  headerCards.forEach((card,i)=>{
+    const col=i%2,row=Math.floor(i/2),x=headerX+col*(headerCellW+headerGapX),y=headerY+row*(headerCellH+headerGapY);
+    ctx.save();ctx.fillStyle='#ffffff09';ctx.strokeStyle=`${gold}65`;ctx.lineWidth=1.4;roundRect(ctx,x,y,headerCellW,headerCellH,15);ctx.fill();ctx.stroke();ctx.restore();
+     drawFitText(ctx,card.primary,x+headerCellW/2,y+37,20,card.color,'center',700,headerCellW-30,13);
+  });
+  let cursorY=headerY+Math.ceil(headerCards.length/2)*(headerCellH+headerGapY)-headerGapY+18;
+  const drawRateCard=(row,x,y,w,h)=>{
+    const data=rateDataFor(row),featured=Boolean(row.featured),unit=data.unit||row.unit||'',single=row.showTwoPrices===false;
+    ctx.save();ctx.fillStyle=featured?'#c8a6531c':'#ffffff09';ctx.strokeStyle=featured?`${gold}dd`:`${gold}65`;ctx.lineWidth=featured?2:1.3;roundRect(ctx,x,y,w,h,16);ctx.fill();ctx.stroke();ctx.restore();
+    drawAssetIcon(ctx,assetIcon(row),x+22,y+Math.min(18,h*.22),Math.min(17,h*.22));
+     drawFitText(ctx,row.label||'',x+w/2,y+Math.min(21,h*.29),Math.min(19,h*.24),muted,'center',700,w-64,12);
+     if(single){
+       const value=data.value===''?'-':formatValue(data.value);
+       drawStoryPrice(ctx,value,unit,x+w/2,y+h*.73,Math.min(56,h*.55,w*.18),featured?'#f0d17a':main,w-36,18);
+      if(h>=90&&data.change_pct!==null&&data.change_pct!==undefined&&Number.isFinite(Number(data.change_pct))){const pct=Number(data.change_pct),trendColor=data.direction==='up'?'#69d79a':data.direction==='down'?'#ef8580':muted,trend=`${faNumber(Math.abs(pct))}٪`;drawStoryArrow(ctx,x+25,y+h-19,data.direction);drawFitText(ctx,trend,x+58,y+h-13,16,trendColor,'left',600,w*.3,11);}
+      return;
+    }
+     const quotes=storyQuotePrices(data.value,row),valueSize=Math.min(44,h*.32,w*.095),labelSize=Math.min(14,h*.18),columnW=(w-34)/2,labelY=y+h*.45,valueY=y+h*.84;
+     drawFitText(ctx,'خرید ما',x+w-columnW/2-14,labelY,labelSize,'#73d6a4','center',700,columnW-12,11);
+     drawStoryPrice(ctx,quotes.buy,unit,x+w-columnW/2-14,valueY,valueSize,'#a8f0c8',columnW-12,14);
+     drawFitText(ctx,'فروش ما',x+columnW/2+14,labelY,labelSize,'#f1a07f','center',700,columnW-12,11);
+     drawStoryPrice(ctx,quotes.sell,unit,x+columnW/2+14,valueY,valueSize,'#ffd0ad',columnW-12,14);
+  };
+  if(cfg.showMainRates!==false){
+    const rows=activeSections().flatMap(sec=>sec.rows.filter(row=>row.visible!==false));
+    drawText(ctx,settings.mainTitle||'قیمت لحظه‌ای طلا و سکه',1010,cursorY+27,28,gold,'right',800,930,18);cursorY+=43;
+    const x0=70,areaW=940,gapX=14,gapY=10,cols=rows.length>1?2:1,rowCount=Math.max(1,Math.ceil(rows.length/cols)),cardW=(areaW-gapX*(cols-1))/cols;
+    const cardH=Math.max(58,Math.min(112,Math.floor((430-gapY*(rowCount-1))/rowCount)));
+    rows.forEach((row,i)=>drawRateCard(row,x0+(i%cols)*(cardW+gapX),cursorY+Math.floor(i/cols)*(cardH+gapY),cardW,cardH));
+    cursorY+=rows.length?rowCount*(cardH+gapY)-gapY+22:18;
   }
-  if(cfg.showSideRates!==false){drawText(ctx,settings.sideTitle||'ارز و بازارهای جهانی',995,cursorY+19,18,gold,'right',700,900,12);cursorY+=31;
-    const visible=(settings.sideRates||[]).filter(item=>item.visible!==false);const x0=70,gap=12,cols=3,w=(940-gap*(cols-1))/cols,rowsCount=Math.max(1,Math.ceil(visible.length/cols)),gapY=8,availableH=170,h=Math.max(26,Math.min(77,(availableH-gapY*(rowsCount-1))/rowsCount));
-    visible.forEach((item,i)=>{const r=Math.floor(i/cols),c=i%cols,x=x0+c*(w+gap),y=cursorY+r*(h+gapY),data=rateDataFor(item),compact=h<55;ctx.save();ctx.fillStyle='#ffffff09';ctx.strokeStyle=`${gold}55`;ctx.lineWidth=1;roundRect(ctx,x,y,w,h,12);ctx.fill();ctx.stroke();ctx.restore();
-      drawAssetIcon(ctx,assetIcon(item),x+w-20,y+(compact?10:15),compact?12:15);drawText(ctx,item.label,x+w-37,y+(compact?15:23),compact?10:12,muted,'right',600,w-55,8);drawFitText(ctx,data.value===''?'—':formatValue(data.value),x+w/2,y+(compact?h-6:51),compact?16:19,main,'center',700,w-42,10);drawStoryArrow(ctx,x+18,y+(compact?h*.62:43),data.direction);if(!compact)drawText(ctx,data.unit||item.unit||'',x+34,y+55,8,muted,'left',400,90,7);
-    });cursorY+=180;
+  if(cfg.showSideRates!==false){
+    const visible=(settings.sideRates||[]).filter(item=>item.visible!==false);
+    drawText(ctx,settings.sideTitle||'ارز و بازارهای جهانی',1010,cursorY+25,25,gold,'right',800,930,17);cursorY+=39;
+    const x0=70,areaW=940,gapX=14,gapY=8,cols=visible.length>1?2:1,rowCount=Math.max(1,Math.ceil(visible.length/cols)),cardW=(areaW-gapX*(cols-1))/cols;
+    const cardH=Math.max(52,Math.min(72,Math.floor((190-gapY*(rowCount-1))/rowCount)));
+    visible.forEach((item,i)=>drawRateCard(item,x0+(i%cols)*(cardW+gapX),cursorY+Math.floor(i/cols)*(cardH+gapY),cardW,cardH));
+    cursorY+=visible.length?rowCount*(cardH+gapY)-gapY+24:18;
   }
-  if(cfg.showGoldChart!==false){const chartY=Math.max(cursorY,1060);drawStoryChart(ctx,70,chartY,940,270);}
+  let chartBottom=cursorY;
+   if(cfg.showGoldChart!==false){const chartY=Math.max(cursorY,1120),chartH=210;drawStoryChart(ctx,70,chartY,940,chartH);chartBottom=chartY+chartH;}
   const contactCards=(settings.contactCards||[]).filter(card=>card.visible!==false&&String(card.value||'').trim());
-  if(cfg.showContacts!==false&&contactCards.length){const y=1375,x0=70,w=940,gap=10,cols=Math.min(3,contactCards.length),rows=Math.ceil(contactCards.length/cols),cw=(w-gap*(cols-1))/cols,ch=Math.min(105,Math.max(64,(215-gap*(rows-1))/rows));contactCards.forEach((card,i)=>{const x=x0+(i%cols)*(cw+gap),cy=y+Math.floor(i/cols)*(ch+gap);ctx.save();ctx.fillStyle='#ffffff09';ctx.strokeStyle=`${gold}65`;ctx.lineWidth=1;roundRect(ctx,x,cy,cw,ch,12);ctx.fill();ctx.stroke();ctx.restore();drawFitText(ctx,card.title||'',x+cw/2,cy+25,13,muted,'center',500,cw-24,9);drawFitText(ctx,card.value||'',x+cw/2,cy+ch-17,17,main,'center',650,cw-26,10);});}
-  const footers=(settings.footerLines||[]).filter(line=>line.visible!==false&&String(line.text||'').trim());if(cfg.showFooter!==false&&footers.length){footers.slice(0,4).forEach((line,i)=>drawFitText(ctx,line.text,540,1732+i*27,13,muted,'center',400,920,9));}
-  drawText(ctx,'تمام نرخ‌ها از TGJU · tgju.org',540,1850,14,gold,'center',600,930,10);drawText(ctx,'FARZIN COIN · منبع داده: شبکه اطلاع‌رسانی طلا و ارز',540,1880,10,'#897d62','center',500,960,8);
+  let contentBottom=chartBottom;
+   if(cfg.showContacts!==false&&contactCards.length){const y=Math.max(chartBottom+22,1330),x0=70,w=940,gap=12,cols=Math.min(3,contactCards.length),cw=(w-gap*(cols-1))/cols,availableH=Math.max(0,1585-y),maxRows=Math.floor((availableH+gap)/56),shown=contactCards.slice(0,cols*maxRows),rows=Math.ceil(shown.length/cols),ch=rows?Math.min(100,Math.floor((availableH-gap*(rows-1))/rows)):0;shown.forEach((card,i)=>{const x=x0+(i%cols)*(cw+gap),cy=y+Math.floor(i/cols)*(ch+gap),mid=cy+ch/2;ctx.save();ctx.fillStyle='#ffffff09';ctx.strokeStyle=`${gold}75`;ctx.lineWidth=1.3;roundRect(ctx,x,cy,cw,ch,14);ctx.fill();ctx.stroke();ctx.restore();drawFitText(ctx,card.title||'',x+cw/2,mid-7,15,muted,'center',600,cw-28,10);drawFitText(ctx,card.value||'',x+cw/2,mid+17,20,main,'center',700,cw-28,11);});if(rows)contentBottom=y+rows*ch+(rows-1)*gap;}
+  const footers=(settings.footerLines||[]).filter(line=>line.visible!==false&&String(line.text||'').trim());const footerStart=Math.max(1620,contentBottom+32),footerCount=Math.max(0,Math.min(4,Math.floor((1830-footerStart)/27)));if(cfg.showFooter!==false&&footers.length){footers.slice(0,footerCount).forEach((line,i)=>drawFitText(ctx,line.text,540,footerStart+i*27,17,muted,'center',500,920,11));}
+  drawText(ctx,'تمام نرخ‌ها از TGJU · tgju.org',540,1854,18,gold,'center',600,930,13);drawText(ctx,'FARZIN COIN · منبع داده: شبکه اطلاع‌رسانی طلا و ارز',540,1885,15,'#897d62','center',500,960,11);
 }
 
 function renderStory() {
@@ -578,7 +649,7 @@ async function refreshNow() {
 }
 $('refreshNow').addEventListener('click', refreshNow);
 
-function collectSettings() { settings.schemaVersion = 5; return clone(settings); }
+function collectSettings() { settings.schemaVersion = 6; return clone(settings); }
 async function saveAll() {
   $('saveAll').disabled = true; $('saveAll').textContent = 'در حال ذخیره...';
   try {

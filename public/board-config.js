@@ -12,29 +12,29 @@ const SOURCE_OPTIONS = [
 ];
 let LIVE_ASSET_OPTIONS = [];
 const DEFAULT_ROWS = [
-  {id:'mazaneh-main',label:'مظنه',source:'mazaneh',unit:'تومان',manualValue:'',visible:true,featured:true},
-  {id:'gram18-main',label:'گرم طلای ۱۸ عیار',source:'gram18',unit:'تومان',manualValue:'',visible:true,featured:true},
-  {id:'emami86-main',label:'سکه امامی ۸۶',source:'coin_full',unit:'تومان',manualValue:'',visible:true,featured:true},
-  {id:'oldcoin-main',label:'سکه قدیم',source:'coin_old',unit:'تومان',manualValue:'',visible:true,featured:false},
-  {id:'half86-main',label:'نیم سکه ۸۶',source:'coin_half',unit:'تومان',manualValue:'',visible:true,featured:false},
-  {id:'quarter86-main',label:'ربع سکه ۸۶',source:'coin_quarter',unit:'تومان',manualValue:'',visible:true,featured:false},
-  {id:'gramcoin-main',label:'سکه یک گرمی',source:'coin_gerami',unit:'تومان',manualValue:'',visible:true,featured:false},
-  {id:'gram24-main',label:'طلای ۲۴ عیار',source:'gram24',unit:'تومان',manualValue:'',visible:true,featured:false},
-  {id:'gram21-main',label:'طلای ۲۱ عیار',source:'gram21',unit:'تومان',manualValue:'',visible:true,featured:false},
-  {id:'ounce-main',label:'انس طلا',source:'ounce',unit:'دلار',manualValue:'',visible:true,featured:false}
+  {id:'mazaneh-main',label:'مظنه',source:'mazaneh',unit:'تومان',manualValue:'',visible:true,featured:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'gram18-main',label:'گرم طلای ۱۸ عیار',source:'gram18',unit:'تومان',manualValue:'',visible:true,featured:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'emami86-main',label:'سکه امامی ۸۶',source:'coin_full',unit:'تومان',manualValue:'',visible:true,featured:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'oldcoin-main',label:'سکه قدیم',source:'coin_old',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'half86-main',label:'نیم سکه ۸۶',source:'coin_half',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'quarter86-main',label:'ربع سکه ۸۶',source:'coin_quarter',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'gramcoin-main',label:'سکه یک گرمی',source:'coin_gerami',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'gram24-main',label:'طلای ۲۴ عیار',source:'gram24',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'gram21-main',label:'طلای ۲۱ عیار',source:'gram21',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'ounce-main',label:'انس طلا',source:'ounce',unit:'دلار',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0}
 ];
 const DEFAULT_SIDE = [
-  {id:'usd-side',label:'دلار',source:'usd',unit:'تومان',manualValue:'',visible:true},
-  {id:'aed-side',label:'درهم',source:'aed',unit:'تومان',manualValue:'',visible:true},
-  {id:'eur-side',label:'یورو',source:'eur',unit:'تومان',manualValue:'',visible:true},
-  {id:'silver-side',label:'نقره ۹۹۹',source:'silver',unit:'تومان / گرم',manualValue:'',visible:true},
-  {id:'oil-side',label:'نفت برنت',source:'oil',unit:'دلار / بشکه',manualValue:'',visible:true}
+  {id:'usd-side',label:'دلار',source:'usd',unit:'تومان',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'aed-side',label:'درهم',source:'aed',unit:'تومان',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'eur-side',label:'یورو',source:'eur',unit:'تومان',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'silver-side',label:'نقره ۹۹۹',source:'silver',unit:'تومان / گرم',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'oil-side',label:'نفت برنت',source:'oil',unit:'دلار / بشکه',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0}
 ];
 const BOARD_DEFAULTS = {
   refreshSeconds:30, showMainRates:true, showSideRates:true, showMarketStatus:true, showClock:true,
   showJalaliDate:true, showGregorianDate:true, showGoldChart:true, showContacts:true, showFooter:true,
   showNewsTicker:true, tickerLabel:'تازه‌ترین اخبار جهان', newsFeedUrl:DEFAULT_FEED, newsRefreshSeconds:180,
-  tickerSpeed:65, tickerFontSize:17, chartRange:'1d', mainColumns:2, sidePanelPercent:27, mainCardGap:14, mainFontScale:1, sideFontScale:1, tgjuWidgetCode:'', footerLines:[{id:'board-footer-quote',text:'زر، جلوه‌ای از زیبایی‌ست؛ اعتماد، ماندگارترین دارایی‌ست.',visible:true}]
+  tickerSpeed:65, tickerFontSize:17, chartRange:'1d', mainColumns:2, sidePanelPercent:27, mainCardGap:18, mainFontScale:1.1, sideFontScale:1.1, cardScrollSpeed:32, tgjuWidgetCode:'', footerLines:[{id:'board-footer-quote',text:'زر، جلوه‌ای از زیبایی‌ست؛ اعتماد، ماندگارترین دارایی‌ست.',visible:true}]
 };
 const STORY_DEFAULTS = {showMainRates:true,showSideRates:true,showMarketStatus:true,showGoldChart:true,showBothDates:true,showContacts:true,showFooter:true};
 const GLOBAL_DEFAULTS = {brand:'گالری طلا و سکه فرزین',subtitle:'نرخ لحظه‌ای بازار طلا و سکه',mainTitle:'نرخ لحظه‌ای طلا و سکه',sideTitle:'ارز و بازارهای جهانی',chartTitle:'نمودار تغییرات طلای ۱۸ عیار',bgColor:'#0b0b0a',goldColor:'#c8a85c',textColor:'#f5f0e5',mutedColor:'#bcb19b',watermarkOpacity:8,showLogo:true,showFrame:true};
@@ -64,6 +64,12 @@ function baseSettings(raw){
   }
   s.sideRates=Array.isArray(s.sideRates)?s.sideRates:structuredClone(DEFAULT_SIDE);
   s.boardConfig={...structuredClone(BOARD_DEFAULTS),...(s.boardConfig||{})};
+  for(const row of [...s.sections.flatMap(section=>section.rows||[]),...s.sideRates]){
+    row.showTwoPrices=row.showTwoPrices??s.boardConfig.showTwoPrices;
+    row.buySpreadPercent=row.buySpreadPercent??s.boardConfig.buySpreadPercent;
+    row.sellSpreadPercent=row.sellSpreadPercent??s.boardConfig.sellSpreadPercent;
+  }
+  delete s.boardConfig.showTwoPrices;delete s.boardConfig.buySpreadPercent;delete s.boardConfig.sellSpreadPercent;
   if(!Array.isArray(s.boardConfig.footerLines))s.boardConfig.footerLines=structuredClone(BOARD_DEFAULTS.footerLines);
   if(s.boardConfig.newsFeedUrl===LEGACY_DEFAULT_FEED)s.boardConfig.newsFeedUrl=DEFAULT_FEED;
   s.storyConfig={...structuredClone(STORY_DEFAULTS),...(s.storyConfig||{})};
@@ -83,8 +89,9 @@ function renderMainRows(){
       <input class="row-input" data-row-field="symbol" value="${esc(row.symbol||'')}" placeholder="شناسه نماد سفارشی TGJU">
       <input class="row-input" type="number" min="0.000001" step="any" data-row-field="divisor" value="${esc(row.divisor||1)}" placeholder="تقسیم بر">
       ${iconSelect(row.icon||'')}
-      <div class="row-actions"><label class="mini-check"><input type="checkbox" data-row-field="visible" ${row.visible!==false?'checked':''}> نمایش</label><label class="mini-check"><input type="checkbox" data-row-field="featured" ${row.featured?'checked':''}> ویژه</label><button class="icon-btn" data-move="up" title="بالا">↑</button><button class="icon-btn" data-move="down" title="پایین">↓</button><button class="icon-btn danger" data-delete title="حذف">×</button></div>
-      <input class="row-input" style="grid-column:1/-1" data-row-field="manualValue" value="${esc(row.manualValue||'')}" placeholder="مقدار دستی؛ فقط وقتی منبع ورود دستی است">
+       <div class="row-actions"><label class="mini-check"><input type="checkbox" data-row-field="visible" ${row.visible!==false?'checked':''}> نمایش</label><label class="mini-check"><input type="checkbox" data-row-field="featured" ${row.featured?'checked':''}> ویژه</label><button class="icon-btn" data-move="up" title="بالا">↑</button><button class="icon-btn" data-move="down" title="پایین">↓</button><button class="icon-btn danger" data-delete title="حذف">×</button></div>
+       <input class="row-input" style="grid-column:1/-1" data-row-field="manualValue" value="${esc(row.manualValue||'')}" placeholder="مقدار دستی؛ فقط وقتی منبع ورود دستی است">
+       <div class="card-quote-settings"><label class="mini-check"><input type="checkbox" data-row-field="showTwoPrices" ${row.showTwoPrices!==false?'checked':''}> نمایش خرید و فروش</label><label class="field"><span>حاشیه خرید (%)</span><input type="number" min="0" max="20" step="0.05" data-row-field="buySpreadPercent" value="${esc(row.buySpreadPercent??0)}"></label><label class="field"><span>حاشیه فروش (%)</span><input type="number" min="0" max="20" step="0.05" data-row-field="sellSpreadPercent" value="${esc(row.sellSpreadPercent??0)}"></label></div>
     </div>`).join('') || '<p class="empty-custom-list">هنوز ردیفی اضافه نشده است.</p>';
   host.querySelectorAll('.config-item').forEach(el=>{
     const sIndex=Number(el.dataset.sectionIndex), rIndex=Number(el.dataset.rowIndex);
@@ -108,8 +115,9 @@ function renderSideRows(){
     <input class="row-input" data-side-field="symbol" value="${esc(item.symbol||'')}" placeholder="شناسه نماد سفارشی TGJU">
     <input class="row-input" type="number" min="0.000001" step="any" data-side-field="divisor" value="${esc(item.divisor||1)}" placeholder="تقسیم بر">
     ${iconSelect(item.icon||'','side')}
-    <div class="row-actions"><label class="mini-check"><input type="checkbox" data-side-field="visible" ${item.visible!==false?'checked':''}> نمایش</label><button class="icon-btn" data-move="up" title="بالا">↑</button><button class="icon-btn" data-move="down" title="پایین">↓</button><button class="icon-btn danger" data-delete title="حذف">×</button></div>
-    <input class="row-input" style="grid-column:1/-1" data-side-field="manualValue" value="${esc(item.manualValue||'')}" placeholder="مقدار دستی، در صورت انتخاب ورود دستی">
+     <div class="row-actions"><label class="mini-check"><input type="checkbox" data-side-field="visible" ${item.visible!==false?'checked':''}> نمایش</label><button class="icon-btn" data-move="up" title="بالا">↑</button><button class="icon-btn" data-move="down" title="پایین">↓</button><button class="icon-btn danger" data-delete title="حذف">×</button></div>
+     <input class="row-input" style="grid-column:1/-1" data-side-field="manualValue" value="${esc(item.manualValue||'')}" placeholder="مقدار دستی، در صورت انتخاب ورود دستی">
+     <div class="card-quote-settings"><label class="mini-check"><input type="checkbox" data-side-field="showTwoPrices" ${item.showTwoPrices!==false?'checked':''}> نمایش خرید و فروش</label><label class="field"><span>حاشیه خرید (%)</span><input type="number" min="0" max="20" step="0.05" data-side-field="buySpreadPercent" value="${esc(item.buySpreadPercent??0)}"></label><label class="field"><span>حاشیه فروش (%)</span><input type="number" min="0" max="20" step="0.05" data-side-field="sellSpreadPercent" value="${esc(item.sellSpreadPercent??0)}"></label></div>
   </div>`).join('')||'<p class="empty-custom-list">دارایی جانبی تعریف نشده است.</p>';
   host.querySelectorAll('.config-item').forEach(el=>{
     const item=settings.sideRates.find(x=>x.id===el.dataset.sideId);if(!item)return;
@@ -159,7 +167,7 @@ function collect(){
   document.querySelectorAll('[data-board]').forEach(el=>{settings.boardConfig[el.dataset.board]=el.type==='checkbox'?el.checked:(el.type==='number'?Number(el.value):el.value);});
   document.querySelectorAll('[data-story]').forEach(el=>{settings.storyConfig[el.dataset.story]=el.checked;});
   document.querySelectorAll('[data-global]').forEach(el=>{settings[el.dataset.global]=el.type==='checkbox'?el.checked:(el.type==='number'?Number(el.value):el.value);});
-  settings.schemaVersion=5;
+  settings.schemaVersion=6;
 }
 function toast(message){const t=$('toast');t.textContent=message;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),3500);}
 async function loadLiveAssetOptions(){try{const response=await fetch('/api/assets',{cache:'no-store'});const data=await response.json();LIVE_ASSET_OPTIONS=(data.assets||[]).map(item=>[item.symbol,`${item.label||item.symbol} · فید زنده TGJU`]);if(settings){renderMainRows();renderSideRows();}}catch{LIVE_ASSET_OPTIONS=[];}}
@@ -175,8 +183,8 @@ async function save(){
   }catch(error){$('configSaveMessage').textContent='ذخیره ناموفق';toast(error.message);}
   finally{$('saveBoardConfig').disabled=false;$('saveBoardConfig').textContent='ذخیره تمام تنظیمات';}
 }
-$('addMainRate').addEventListener('click',()=>{if(!settings.sections.length)settings.sections=[{id:'main-prices',title:'نرخ‌های اصلی',visible:true,rows:[]}];settings.sections[0].rows.push({id:id('rate'),label:'قیمت جدید',source:'manual',symbol:'',divisor:1,icon:'auto',unit:'تومان',manualValue:'',visible:true,featured:false});renderMainRows();});
-$('addSideRate').addEventListener('click',()=>{settings.sideRates.push({id:id('side'),label:'دارایی جدید',source:'manual',symbol:'',divisor:1,icon:'auto',unit:'',manualValue:'',visible:true});renderSideRows();});
+$('addMainRate').addEventListener('click',()=>{if(!settings.sections.length)settings.sections=[{id:'main-prices',title:'نرخ‌های اصلی',visible:true,rows:[]}];settings.sections[0].rows.push({id:id('rate'),label:'قیمت جدید',source:'manual',symbol:'',divisor:1,icon:'auto',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0});renderMainRows();});
+$('addSideRate').addEventListener('click',()=>{settings.sideRates.push({id:id('side'),label:'دارایی جدید',source:'manual',symbol:'',divisor:1,icon:'auto',unit:'',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0});renderSideRows();});
 $('addBoardContact').addEventListener('click',()=>{settings.contactCards.push({id:id('contact'),title:'عنوان جدید',value:'متن دلخواه',visible:true});renderContactsAndFooters();});
 $('addBoardFooter').addEventListener('click',()=>{settings.boardConfig.footerLines.push({id:id('board-footer'),text:'متن جدید فوتر تابلو',visible:true});renderContactsAndFooters();});
 async function clearProviderKey(provider){if(!confirm('کلید ذخیره‌شده این سرویس حذف شود؟'))return;const payload={};payload[provider==='talasanj'?'clearApiKey':'clearArzhaamKey']=true;const response=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await response.json();if(!response.ok)throw new Error(data.error||'حذف کلید ناموفق بود.');window.apiKeyConfigured=Boolean(data.apiKeyConfigured);window.arzhaamKeyConfigured=Boolean(data.arzhaamKeyConfigured);loadControls();toast('کلید ذخیره‌شده حذف شد.');}

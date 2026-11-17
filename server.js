@@ -21,7 +21,13 @@ const DATA_DIR = process.env.FARZIN_DATA_DIR ? path.resolve(process.env.FARZIN_D
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const PORT = Number(process.env.PORT || 3000);
 const ADMIN_USER = String(process.env.ADMIN_USER || 'admin');
-const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || '');
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || crypto.randomBytes(18).toString('base64url'));
+const SESSION_SECRET = String(process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'));
+if (ADMIN_PASSWORD.length < 10) throw new Error('ADMIN_PASSWORD must be at least 10 characters long.');
+const SESSION_TTL_SECONDS = 8 * 60 * 60;
+const sessionCookie = 'farzin_session';
+const loginAttempts = new Map();
+const sessions = new Map();
 // Listen on all interfaces so a TV / second device on the shop LAN can open the board.
 const requestedHost = String(process.env.HOST || '').trim();
 // Earlier v4/v5 .env files used 127.0.0.1. Override that legacy default so
@@ -126,14 +132,14 @@ async function fetchNewsFeed(feedUrl) {
 function parseNumeric(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (value === null || value === undefined || value === '') return null;
-  const fa = String(value).replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+  const fa = String(value).trim().replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
     .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
-  const cleaned = fa.replace(/٬|،|,/g, '').replace(/\s/g, '').replace(/٪|%/g, '').replace(/[^0-9+\-.]/g, '');
-  if (!cleaned || cleaned === '-' || cleaned === '+') return null;
+  const cleaned = fa.replace(/[٬,\s]/g, '').replace(/٫/g, '.').replace(/[٪%]/g, '');
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(cleaned)) return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
-function tgjuStamp(item, receivedAt) {
+function tgjuStamp(item) {
   const raw = item?.ts || item?.timestamp || item?.updated_at || item?.updatedAt || item?.datetime;
   if (raw !== undefined && raw !== null && raw !== '') {
     if (typeof raw === 'number' || /^\d{10,13}$/.test(String(raw).trim())) {
@@ -150,9 +156,7 @@ function tgjuStamp(item, receivedAt) {
     const date = new Date(normalized);
     if (Number.isFinite(date.getTime())) return date.toISOString();
   }
-  // Some TGJU quote objects only include the clock in `dt`; retain receipt time
-  // rather than inventing an exchange timestamp from an incomplete clock.
-  return receivedAt;
+  return null;
 }
 function getTgjuRecord(current, keys) {
   for (const key of keys) {
@@ -175,7 +179,7 @@ const TGJU_MAP = {
   aed: { keys: ['price_aed'], toman: true, unit: 'تومان' },
   eur: { keys: ['price_eur'], toman: true, unit: 'تومان' },
   silver: { keys: ['silver_999'], toman: true, unit: 'تومان / گرم' },
-  oil: { keys: ['energy_brent_oil', 'energy-brent-oil', 'oil-brent', 'oil_brent', 'brent'], toman: false, unit: 'دلار / بشکه' }
+  oil: { keys: ['energy_brent_oil', 'energy-brent-oil', 'oil-brent', 'oil_brent', 'brent'], toman: false, unit: 'دلار / بشکه', currency: 'USD', maxRelativeChangeRatio: 0.5 }
 };
 let tgjuRefreshPromise = null;
 let tgjuLastAttemptAt = 0;
@@ -190,7 +194,8 @@ let priceHistory = readJson(HISTORY_FILE, []);
 if (!Array.isArray(priceHistory)) priceHistory = [];
 
 function normalizeTgjuRecord(item, map, receivedAt, previousValue) {
-  const rawPrice = parseNumeric(item?.p ?? item?.price ?? item?.value ?? item?.last);
+  const rawValue = item?.p ?? item?.price ?? item?.value ?? item?.last;
+  const rawPrice = parseNumeric(rawValue);
   if (!Number.isFinite(rawPrice) || rawPrice <= 0) return null;
   const price = map.toman ? rawPrice / 10 : rawPrice;
   const pctRaw = parseNumeric(item?.dp ?? item?.change_pct ?? item?.changePercent ?? item?.percent);
@@ -198,14 +203,18 @@ function normalizeTgjuRecord(item, map, receivedAt, previousValue) {
   const rawTrend = String(item?.dt ?? item?.direction ?? item?.trend ?? '').toLowerCase();
   const explicitDown = /down|نزول|کاه|negative|bear|(^|\s)-/.test(rawTrend);
   const explicitUp = /up|صعود|افزای|positive|bull|(^|\s)\+/.test(rawTrend);
-  let pct = Number.isFinite(pctRaw) ? pctRaw : (Number.isFinite(changeAmount) && rawPrice ? (changeAmount / (rawPrice - changeAmount || rawPrice)) * 100 : 0);
-  if (explicitDown) pct = -Math.abs(pct);
-  else if (explicitUp) pct = Math.abs(pct);
-  const direction = explicitDown ? 'down' : explicitUp ? 'up' : (previousValue && price > previousValue ? 'up' : previousValue && price < previousValue ? 'down' : pct > 0.0001 ? 'up' : pct < -0.0001 ? 'down' : 'flat');
-  if (direction === 'down') pct = -Math.abs(pct);
+  let pct = Number.isFinite(pctRaw) ? pctRaw : (Number.isFinite(changeAmount) && rawPrice ? (changeAmount / (rawPrice - changeAmount || rawPrice)) * 100 : null);
+  if (Number.isFinite(pct) && explicitDown) pct = -Math.abs(pct);
+  else if (Number.isFinite(pct) && explicitUp) pct = Math.abs(pct);
+  const direction = explicitDown ? 'down' : explicitUp ? 'up' : previousValue && price > previousValue ? 'up' : previousValue && price < previousValue ? 'down' : Number.isFinite(pct) && pct > 0.0001 ? 'up' : Number.isFinite(pct) && pct < -0.0001 ? 'down' : Number.isFinite(pct) ? 'flat' : null;
+  if (direction === 'down' && Number.isFinite(pct)) pct = -Math.abs(pct);
+  const sourceTimestamp = tgjuStamp(item);
+  const moveRatio = previousValue > 0 ? Math.abs(price - previousValue) / previousValue : 0;
+  const implausible = Number.isFinite(map.maxRelativeChangeRatio) && previousValue > 0 && moveRatio > map.maxRelativeChangeRatio;
+  if (implausible) return { valid: false, raw_value: rawValue, raw_numeric: rawPrice, price: null, currency: map.currency || null, unit: map.unit, source: 'TGJU', source_timestamp: sourceTimestamp, received_at: receivedAt, validation_error: `تغییر قیمت ${map.unit} بیش از حد مجاز نسبت به آخرین نرخ معتبر است.` };
   return {
-    price, change_pct: Number.isFinite(pct) ? pct : 0, direction,
-    updated_at: tgjuStamp(item, receivedAt), timestamp_is_fallback: !(item?.ts || item?.timestamp || item?.updated_at || item?.updatedAt), source: 'TGJU', unit: map.unit,
+    valid: true, raw_value: rawValue, raw_numeric: rawPrice, raw_currency: map.toman ? 'IRR' : (map.currency || null), price, currency: map.toman ? 'Toman' : (map.currency || null), change_pct: pct, direction,
+    updated_at: sourceTimestamp, source_timestamp: sourceTimestamp, timestamp_is_fallback: false, received_at: receivedAt, source: 'TGJU', unit: map.unit,
     raw_symbol: item?.symbol || null, low: parseNumeric(item?.l ?? item?.low) === null ? null : parseNumeric(item?.l ?? item?.low) / (map.toman ? 10 : 1),
     high: parseNumeric(item?.h ?? item?.high) === null ? null : parseNumeric(item?.h ?? item?.high) / (map.toman ? 10 : 1)
   };
@@ -267,13 +276,13 @@ function makeTgjuSnapshot(current, feed) {
   for (const [symbol, item] of Object.entries(current)) {
     if (!item || typeof item !== 'object') continue;
     const generic = normalizeTgjuRecord(item, { toman: false, unit: '' }, receivedAt, tgjuSnapshot.assets?.[symbol]?.price);
-    if (generic) assets[symbol] = { ...generic, symbol, label: String(item.name || item.title || item.n || item.symbol || symbol), category: String(item.category || item.market || '') };
+    if (generic?.valid) assets[symbol] = { ...generic, symbol, label: String(item.name || item.title || item.n || item.symbol || symbol), category: String(item.category || item.market || '') };
   }
   const previous = { ...tgjuSnapshot.prices, ...tgjuSnapshot.sideRates };
   for (const [target, config] of Object.entries(TGJU_MAP)) {
     const found = getTgjuRecord(current, config.keys);
     const normalized = found ? normalizeTgjuRecord(found.item, config, receivedAt, previous[target]?.price) : null;
-    if (!normalized) { errors[target] = `نماد ${config.keys.join('/')} در پاسخ TGJU موجود نیست یا قیمت معتبری ندارد.`; continue; }
+    if (!normalized?.valid) { errors[target] = normalized?.validation_error || `نماد ${config.keys.join('/')} در پاسخ TGJU موجود نیست یا قیمت معتبری ندارد.`; continue; }
     if (target === 'usd' || target === 'aed' || target === 'eur' || target === 'silver' || target === 'oil') sideRates[target] = normalized;
     else prices[target] = normalized;
   }
@@ -291,18 +300,18 @@ function makeTgjuSnapshot(current, feed) {
   if (prices.coin_quarter) prices.coin_quarter.quote_note = 'نرخ عمومی ربع‌سکه TGJU؛ نماد مجزای سال ضرب ۱۳۸۶ در فید عمومی موجود نیست.';
   if (prices.coin_old) prices.coin_old.quote_note = 'سکه بهار آزادی (طرح قدیم) در TGJU.';
   saveTgjuHistory(prices.gram18);
-  const timestamps = [...Object.values(prices), ...Object.values(sideRates)].map(x => x?.updated_at).filter(Boolean);
-  const latestTimestamp = timestamps.map(value => ({ value, time: Date.parse(value) })).filter(x => Number.isFinite(x.time)).sort((a,b)=>b.time-a.time)[0]?.value || receivedAt;
+  const timestamps = [...Object.values(prices), ...Object.values(sideRates)].map(x => x?.source_timestamp).filter(Boolean);
+  const latestTimestamp = timestamps.map(value => ({ value, time: Date.parse(value) })).filter(x => Number.isFinite(x.time)).sort((a,b)=>b.time-a.time)[0]?.value || null;
   const goldStamp = prices.gram18?.updated_at ? Date.parse(prices.gram18.updated_at) : NaN;
-  const ageMs = Number.isFinite(goldStamp) && !prices.gram18?.timestamp_is_fallback ? Math.max(0, Date.now() - goldStamp) : Infinity;
+  const ageMs = Number.isFinite(goldStamp) ? Math.max(0, Date.now() - goldStamp) : Math.max(0, Date.now() - Date.parse(prices.gram18?.received_at || receivedAt));
   const hasPrices = [...Object.values(prices), ...Object.values(sideRates), ...Object.values(assets)].some(x => x && Number.isFinite(x.price) && x.price > 0);
   const realSymbols = Object.keys(assets).length || (Object.keys(prices).length + Object.keys(sideRates).length);
   const missingRequired = ['mazaneh','gram18','coin_full','coin_old','coin_half','coin_quarter','coin_gerami','gram24','ounce','usd','aed','eur','silver','oil'].filter(k => !(prices[k] || sideRates[k]));
   const points = priceHistory.map(x => ({ timestamp: x.timestamp, price: x.price }));
   return {
-    status: hasPrices ? (missingRequired.length ? 'partial' : 'online') : 'offline', source: 'TGJU', source_host: feed,
+    status: hasPrices ? (ageMs > 5 * 60_000 ? 'stale' : ageMs > 60_000 ? 'delayed' : missingRequired.length ? 'partial' : 'online') : 'offline', source: 'TGJU', source_host: feed,
     updated_at: latestTimestamp, received_at: receivedAt, prices, sideRates, assets,
-    history: { points, updated_at: receivedAt, source: 'TGJU · نمونه‌های ذخیره‌شده محلی' },
+    history: { points, updated_at: receivedAt, source: 'TGJU · ثبت محلی هنگام دریافت' },
     errors: { ...errors }, providers: { tgju: hasPrices }, hasPrices, market_open: Number.isFinite(ageMs) ? ageMs < 5 * 60_000 : null,
     market_status_updated_at: prices.gram18?.updated_at || null,
     market_status_note: 'بر اساس تازگی آخرین نرخ گرم طلای ۱۸ عیار در TGJU', fetched_at: receivedAt,
@@ -338,7 +347,17 @@ async function refreshTgjuSnapshot(force = false) {
 function getDashboardSnapshot() {
   const retryWindow = tgjuSnapshot.status === 'offline' || tgjuSnapshot.status === 'connecting' ? TGJU_ERROR_RETRY_MS : TGJU_POLL_MS;
   if (!tgjuLastAttemptAt || Date.now() - tgjuLastAttemptAt >= retryWindow) void refreshTgjuSnapshot(true);
-  return { ...tgjuSnapshot, prices: { ...tgjuSnapshot.prices }, sideRates: { ...tgjuSnapshot.sideRates }, assets: { ...(tgjuSnapshot.assets || {}) }, errors: { ...(tgjuSnapshot.errors || {}) }, history: tgjuSnapshot.history || { points: [] }, hasPrices: Boolean(tgjuSnapshot.hasPrices) };
+  const payload = { ...tgjuSnapshot, prices: { ...tgjuSnapshot.prices }, sideRates: { ...tgjuSnapshot.sideRates }, assets: { ...(tgjuSnapshot.assets || {}) }, errors: { ...(tgjuSnapshot.errors || {}) }, history: tgjuSnapshot.history || { points: [] }, hasPrices: Boolean(tgjuSnapshot.hasPrices) };
+  if (payload.hasPrices && payload.status !== 'connecting') {
+    const gold = payload.prices.gram18;
+    const stamp = gold?.source_timestamp ? Date.parse(gold.source_timestamp) : Date.parse(gold?.received_at || '');
+    const age = Number.isFinite(stamp) ? Math.max(0, Date.now() - stamp) : Infinity;
+    payload.data_age_ms = age;
+    payload.freshness = age <= TGJU_POLL_MS * 2 ? 'live' : age <= 5 * 60_000 ? 'delayed' : 'stale';
+    if (payload.freshness === 'stale') payload.status = 'stale';
+    else if (payload.freshness === 'delayed' && payload.status === 'online') payload.status = 'delayed';
+  } else if (!payload.hasPrices) payload.freshness = 'offline';
+  return payload;
 }
 function getLocalAddresses() {
   const out = [];
@@ -348,26 +367,69 @@ function getLocalAddresses() {
   return [...new Set(out)];
 }
 
-function isAdminAuthorized(req) {
-  if (!ADMIN_PASSWORD) return true; // Local development only; deployment templates set a password.
-  const header = String(req.headers.authorization || '');
-  if (!header.startsWith('Basic ')) return false;
-  let decoded = ''; try { decoded = Buffer.from(header.slice(6), 'base64').toString('utf8'); } catch { return false; }
-  const split = decoded.indexOf(':'); if (split < 0) return false;
-  const user = decoded.slice(0, split), password = decoded.slice(split + 1);
-  const safeEqual = (a, b) => { const aa = Buffer.from(String(a)); const bb = Buffer.from(String(b)); return aa.length === bb.length && crypto.timingSafeEqual(aa, bb); };
-  return safeEqual(user, ADMIN_USER) && safeEqual(password, ADMIN_PASSWORD);
+function safeEqual(a, b) {
+  const aa = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  return aa.length === bb.length && crypto.timingSafeEqual(aa, bb);
 }
-function requireAdmin(req, res) {
-  if (isAdminAuthorized(req)) return true;
-  res.writeHead(401, { 'WWW-Authenticate': 'Basic realm=\"Farzin Admin\", charset=\"UTF-8\"', 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('ورود مدیر لازم است.');
-  return false;
+function signSession(payload) {
+  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(encoded).digest('base64url');
+  return `${encoded}.${signature}`;
 }
+function hasValidSession(req) {
+  const cookies = Object.fromEntries(String(req.headers.cookie || '').split(';').map(part => {
+    const index = part.indexOf('=');
+    return index < 0 ? ['', ''] : [part.slice(0, index).trim(), part.slice(index + 1).trim()];
+  }));
+  const [encoded, signature, extra] = String(cookies[sessionCookie] || '').split('.');
+  if (!encoded || !signature || extra) return false;
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(encoded).digest('base64url');
+  if (!safeEqual(signature, expected)) return false;
+  try {
+    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+    return payload.user === ADMIN_USER && Number(payload.exp) > Date.now() && sessions.get(payload.nonce) === Number(payload.exp);
+  } catch { return false; }
+}
+function sessionCookieHeader(req, token = '', clear = false) {
+  const secure = req.socket.encrypted || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
+  return `${sessionCookie}=${token}; Path=/; HttpOnly; SameSite=Strict${secure ? '; Secure' : ''}${clear ? '; Max-Age=0' : `; Max-Age=${SESSION_TTL_SECONDS}`}`;
+}
+function sendForbidden(res) {
+  res.writeHead(403, { 'Cache-Control': 'no-store', 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(`<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b0b0a"><title>دسترسی غیرمجاز · فرزین</title><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 0,#392d17 0,transparent 42%),#0b0b0a;color:#f5f0e5;font:16px Vazirmatn,Tahoma,sans-serif}.card{width:min(100%,520px);text-align:center;padding:48px 36px;border:1px solid #574728;border-radius:24px;background:linear-gradient(145deg,#191710,#100f0c);box-shadow:0 28px 100px #0009}.code{color:#c8a85c;font:800 clamp(64px,16vw,112px)/1 sans-serif;letter-spacing:-.08em}.lock{margin:24px auto 10px;width:46px;height:38px;border:2px solid #c8a85c;border-radius:10px;position:relative}.lock:before{content:'';position:absolute;width:20px;height:22px;border:2px solid #c8a85c;border-bottom:0;border-radius:14px 14px 0 0;left:11px;top:-23px}.lock:after{content:'';position:absolute;width:5px;height:10px;border-radius:5px;background:#c8a85c;left:19px;top:12px}h1{font-size:24px;color:#f0d58c;margin:18px 0 8px}p{color:#bcb19b;line-height:1.9;margin:0 0 25px}a{display:inline-block;padding:11px 23px;border:1px solid #c8a85c;border-radius:10px;color:#17130a;background:#d7ba70;text-decoration:none;font-weight:700}@media(max-width:480px){.card{padding:38px 22px}}</style><main class="card"><div class="code">403</div><div class="lock" aria-hidden="true"></div><h1>دسترسی مجاز نیست</h1><p>این بخش برای حساب واردشده در دسترس نیست یا نشست شما پایان یافته است.</p><a href="/login">بازگشت به ورود امن</a></main></html>`);
+}
+function redirectToLogin(req, res) {
+  const next = encodeURIComponent(req.url.startsWith('/') && !req.url.startsWith('//') ? req.url : '/');
+  res.writeHead(303, { Location: `/login?next=${next}`, 'Cache-Control': 'no-store' });
+  res.end();
+}
+function loginLimit(ip) {
+  const now = Date.now();
+  const recent = (loginAttempts.get(ip) || []).filter(time => now - time < 10 * 60_000);
+  loginAttempts.set(ip, recent);
+  return recent.length >= 8;
+}
+function recordLoginFailure(ip) {
+  const recent = loginAttempts.get(ip) || [];
+  recent.push(Date.now());
+  loginAttempts.set(ip, recent);
+}
+function clearLoginFailures(ip) { loginAttempts.delete(ip); }
 function sendJson(res, status, value) {
   const body = JSON.stringify(value);
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(body);
+}
+function addBootScreen(html, showLogout) {
+  const markup = '<div id="farzinBoot" class="farzin-boot" role="status" aria-live="polite"><div class="farzin-boot-inner"><img src="/farzin-logo.png" alt=""><span class="farzin-boot-label">در حال آماده‌سازی استودیو</span><span class="farzin-boot-track"><i></i></span></div></div>';
+  const sessionTools = showLogout && !/id=["']farzinLogout["']/.test(html) ? '<button class="farzin-logout" id="farzinLogout" type="button">خروج امن</button>' : '';
+  const assets = '<link rel="stylesheet" href="/boot.css"><script src="/boot.js" defer></script>';
+  return html.replace(/<\/head>/i, `${assets}</head>`).replace(/<\/body>/i, `${sessionTools}${markup}</body>`);
+}
+function sendHtml(res, data, showLogout = false) {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(addBootScreen(data.toString('utf8'), showLogout));
 }
 function readBody(req, max = 1_000_000) {
   return new Promise((resolve, reject) => {
@@ -384,7 +446,43 @@ function readBody(req, max = 1_000_000) {
   });
 }
 async function routeApi(req, res, pathname) {
-  if ((pathname === '/api/config' || (pathname === '/api/logo' && req.method === 'POST')) && !requireAdmin(req, res)) return;
+  if (pathname === '/api/login' && req.method === 'POST') {
+    const ip = req.socket.remoteAddress || 'unknown';
+    if (loginLimit(ip)) return sendJson(res, 429, { error: 'تعداد تلاش‌ها زیاد است؛ ۱۰ دقیقه دیگر دوباره امتحان کنید.' });
+    try {
+      const body = await readBody(req, 8_000);
+      if (!safeEqual(String(body.username || ''), ADMIN_USER) || !safeEqual(String(body.password || ''), ADMIN_PASSWORD)) {
+        recordLoginFailure(ip);
+        return sendJson(res, 401, { error: 'نام کاربری یا گذرواژه نادرست است.' });
+      }
+      clearLoginFailures(ip);
+      const exp = Date.now() + SESSION_TTL_SECONDS * 1000;
+      const nonce = crypto.randomBytes(16).toString('hex');
+      for (const [id, expiry] of sessions) if (expiry <= Date.now()) sessions.delete(id);
+      sessions.set(nonce, exp);
+      const token = signSession({ user: ADMIN_USER, exp, nonce });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Set-Cookie': sessionCookieHeader(req, token) });
+      return res.end(JSON.stringify({ ok: true, username: ADMIN_USER }));
+    } catch (error) { return sendJson(res, 400, { error: error.message || 'ورود انجام نشد.' }); }
+  }
+  if (pathname === '/api/session' && req.method === 'GET') return sendJson(res, 200, { authenticated: hasValidSession(req) });
+  if (pathname === '/api/logout' && req.method === 'POST') {
+    const cookies = Object.fromEntries(String(req.headers.cookie || '').split(';').map(part => { const index = part.indexOf('='); return index < 0 ? ['', ''] : [part.slice(0, index).trim(), part.slice(index + 1).trim()]; }));
+    const [encoded] = String(cookies[sessionCookie] || '').split('.');
+    try { if (encoded) sessions.delete(JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')).nonce); } catch {}
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Set-Cookie': sessionCookieHeader(req, '', true) });
+    return res.end(JSON.stringify({ ok: true }));
+  }
+  if (pathname === '/api/health' && req.method === 'GET') {
+    return sendJson(res, 200, {
+      ok: true, serverTime: new Date().toISOString(), host: HOST, port: PORT,
+      localAddresses: getLocalAddresses(), source: 'TGJU', tgjuStatus: tgjuSnapshot.status,
+      tgjuLastSuccessAt: tgjuLastSuccessAt ? new Date(tgjuLastSuccessAt).toISOString() : null,
+      tgjuLastAttemptAt: tgjuLastAttemptAt ? new Date(tgjuLastAttemptAt).toISOString() : null,
+      tgjuLastError, cachedPrices: Boolean(tgjuSnapshot.hasPrices), uptimeSeconds: Math.round(process.uptime())
+    });
+  }
+  if (!hasValidSession(req)) return sendJson(res, 401, { error: 'ورود به سامانه لازم است.', login: '/login' });
   if (pathname === '/api/logo' && req.method === 'POST') {
     try {
       const body = await readBody(req, 18_000_000);
@@ -400,16 +498,6 @@ async function routeApi(req, res, pathname) {
       return sendJson(res, 400, { error: error.message || 'آپلود لوگو انجام نشد.' });
     }
   }
-  if (pathname === '/api/health' && req.method === 'GET') {
-    return sendJson(res, 200, {
-      ok: true, serverTime: new Date().toISOString(), host: HOST, port: PORT,
-      localAddresses: getLocalAddresses(), source: 'TGJU', tgjuStatus: tgjuSnapshot.status,
-      tgjuLastSuccessAt: tgjuLastSuccessAt ? new Date(tgjuLastSuccessAt).toISOString() : null,
-      tgjuLastAttemptAt: tgjuLastAttemptAt ? new Date(tgjuLastAttemptAt).toISOString() : null,
-      tgjuLastError, cachedPrices: Boolean(tgjuSnapshot.hasPrices), uptimeSeconds: Math.round(process.uptime())
-    });
-  }
-
   if (pathname === '/api/public-config' && req.method === 'GET') {
     const settings = readJson(SETTINGS_FILE, null);
     if (settings && settings.boardConfig) delete settings.boardConfig.tgjuWidgetCode;
@@ -480,13 +568,28 @@ const server = http.createServer(async (req, res) => {
     try { return await routeApi(req, res, url.pathname); }
     catch (error) { if (!res.headersSent) return sendJson(res, 500, { error: error.message || 'خطای داخلی سرور.' }); if (!res.writableEnded) res.end(); return; }
   }
-  if ((url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/board-config' || url.pathname === '/board-config/') && req.method === 'GET' && !requireAdmin(req, res)) return;
+  if (url.pathname === '/login' || url.pathname === '/login/') {
+    if (hasValidSession(req)) {
+      const next = url.searchParams.get('next') || '/';
+      const destination = next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/';
+      res.writeHead(303, { Location: destination, 'Cache-Control': 'no-store' });
+      return res.end();
+    }
+    return fs.readFile(path.join(ROOT, 'login.html'), (error, data) => {
+      if (error) { res.writeHead(500); return res.end('Login page unavailable'); }
+      sendHtml(res, data);
+    });
+  }
+  if (url.pathname === '/403' || url.pathname === '/403/') return sendForbidden(res);
+  if (!hasValidSession(req) && !(url.pathname === '/api/health' && req.method === 'GET') && !['/login.css', '/login.js', '/boot.css', '/boot.js', '/farzin-logo.png'].includes(url.pathname)) {
+    if (url.pathname.startsWith('/api/')) return sendJson(res, 401, { error: 'ورود به سامانه لازم است.', login: '/login' });
+    return redirectToLogin(req, res);
+  }
   if ((url.pathname === '/board' || url.pathname === '/board/' || url.pathname === '/board-config' || url.pathname === '/board-config/' || url.pathname === '/tgju-widget' || url.pathname === '/tgju-widget/') && req.method === 'GET') {
     const page = url.pathname.startsWith('/board-config') ? 'board-config.html' : url.pathname.startsWith('/tgju-widget') ? 'tgju-widget.html' : 'board.html';
     fs.readFile(path.join(ROOT, page), (error, data) => {
       if (error) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Board page not found'); }
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-      res.end(data);
+      sendHtml(res, data, true);
     });
     return;
   }
@@ -499,6 +602,7 @@ const server = http.createServer(async (req, res) => {
   }
   fs.readFile(file, (error, data) => {
     if (error) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Not found'); }
+    if (path.extname(file) === '.html') return sendHtml(res, data, true);
     res.writeHead(200, {
       'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
       'Cache-Control': 'no-store'
@@ -512,7 +616,8 @@ server.listen(PORT, HOST, () => {
   console.log(`Local: http://localhost:${PORT}`);
   for (const address of getLocalAddresses()) console.log(`Shop LAN: http://${address}:${PORT}`);
   console.log('Live market source: TGJU (no API key required). First quote is fetched in the background.');
-  console.log(ADMIN_PASSWORD ? 'Admin pages are protected with HTTP Basic authentication.' : 'WARNING: ADMIN_PASSWORD is empty; admin pages are unprotected.');
+  console.log(`Secure login enabled for user "${ADMIN_USER}"; sessions expire after ${SESSION_TTL_SECONDS / 3600} hours.`);
+  if (!process.env.ADMIN_PASSWORD) console.log(`Generated one-time admin password: ${ADMIN_PASSWORD}`);
   console.log(`TGJU polling: every ${TGJU_POLL_MS / 1000}s; failed source retries: every ${TGJU_ERROR_RETRY_MS / 1000}s.`);
   setTimeout(() => { void refreshTgjuSnapshot(true); }, 250).unref();
   setInterval(() => {

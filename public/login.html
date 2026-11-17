@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090908">
+<title>ورود امن · استودیو فرزین</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/login.css">
+<script src="/login.js" defer></script>
+</head>
+<body>
+<div class="login-noise" aria-hidden="true"></div>
+<main class="login-layout">
+  <section class="login-story" aria-label="استودیو فرزین">
+    <div class="story-orbit orbit-one"></div><div class="story-orbit orbit-two"></div>
+    <div class="story-brand"><img src="/farzin-logo.png" alt="لوگوی فرزین"><span>FARZIN COIN<br><b>PRIVATE STUDIO</b></span></div>
+    <div class="story-copy"><span class="story-kicker">A QUIETER KIND OF GOLD</span><h1>دقت بازار،<br><em>با امضای فرزین</em></h1><p>فضای اختصاصی مدیریت استوری و نمایش زنده نرخ‌ها؛ محافظت‌شده و در دسترس فقط برای شما.</p></div>
+    <div class="story-footer"><span class="gold-line"></span><span>SECURE ACCESS · EST. FARZIN</span></div>
+  </section>
+  <section class="login-panel" aria-labelledby="loginTitle">
+    <div class="panel-top"><span class="status-mark"></span><span>اتصال امن برقرار است</span></div>
+    <div class="form-heading"><span class="eyebrow">خوش اومدی</span><h2 id="loginTitle">ورود به پنل اختصاصی فرزین</h2><p>برای ادامه، مشخصات حساب مدیر را وارد کنید.</p></div>
+    <form id="loginForm" autocomplete="on">
+      <label class="login-field"><span>نام کاربری</span><span class="input-wrap"><span class="field-icon" aria-hidden="true">◉</span><input id="username" name="username" type="text" autocomplete="username" required autofocus></span></label>
+      <label class="login-field"><span>گذرواژه</span><span class="input-wrap"><span class="field-icon" aria-hidden="true">⌑</span><input id="password" name="password" type="password" autocomplete="current-password" required><button class="reveal" id="togglePassword" type="button" aria-label="نمایش گذرواژه">نمایش</button></span></label>
+      <div class="form-error" id="loginError" role="alert" aria-live="polite"></div>
+      <button class="submit-button" id="loginSubmit" type="submit"><span>ورود امن</span><span aria-hidden="true">←</span></button>
+    </form>
+    <div class="panel-foot"><span class="tiny-lock" aria-hidden="true"></span><span>نشست رمزنگاری شده</span></div>
+    <div class="login-caption">طلا و سکه فرزین <span>•</span> طراحی و توسعه: amirparsa_hfz</div>
+  </section>
+</main>
+</body>
+</html>

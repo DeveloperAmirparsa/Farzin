@@ -12,7 +12,7 @@
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050504;color:#f5f0e5;font-family:Vazirmatn,Tahoma,sans-serif}
 #boardCanvas{display:block;width:100vw;height:100vh;background:#050504;image-rendering:auto}
 .board-controls{position:fixed;z-index:5;top:14px;left:14px;display:flex;align-items:center;gap:9px;padding:9px 12px;border:1px solid #8b713d88;border-radius:13px;background:#11100ddd;backdrop-filter:blur(12px);transition:opacity .35s;box-shadow:0 8px 28px #0007}
-.board-controls button,.board-controls a{border:1px solid #806639;border-radius:8px;background:#201b10;color:#ead39a;font:600 12px Vazirmatn,Tahoma,sans-serif;padding:8px 12px;text-decoration:none;cursor:pointer}.source-credit{position:fixed;z-index:3;bottom:4px;left:10px;padding:2px 6px;border:1px solid #8b713d66;border-radius:6px;background:#0b0a08c9;color:#ddc37e;font:8px Vazirmatn,Tahoma,sans-serif;text-decoration:none;opacity:.8}.source-credit:hover{opacity:1}
+ .board-controls button,.board-controls a{border:1px solid #806639;border-radius:8px;background:#201b10;color:#ead39a;font:600 12px Vazirmatn,Tahoma,sans-serif;padding:8px 12px;text-decoration:none;cursor:pointer}.board-controls .farzin-logout{position:static;z-index:auto;padding:8px 12px;border-color:#806639;border-radius:8px;background:#201b10;color:#ead39a;font:600 12px Vazirmatn,Tahoma,sans-serif;backdrop-filter:none;transition:background .2s,border-color .2s}.board-controls .farzin-logout:hover{background:#2a2315;border-color:#c6a85d}.source-credit{position:fixed;z-index:3;bottom:4px;left:10px;padding:2px 6px;border:1px solid #8b713d66;border-radius:6px;background:#0b0a08c9;color:#ddc37e;font:8px Vazirmatn,Tahoma,sans-serif;text-decoration:none;opacity:.8}.source-credit:hover{opacity:1}
 #boardStatus{font-size:11px;color:#d1c6ad;white-space:nowrap}.live-dot{width:8px;height:8px;border-radius:50%;background:#79c48a;box-shadow:0 0 12px #79c48a;display:inline-block;margin-left:5px}.live-dot.error{background:#d77a70;box-shadow:0 0 12px #d77a70}
 .board-controls.hidden{opacity:0;pointer-events:none}.board-controls:hover{opacity:1;pointer-events:auto}
 @media(max-width:700px){.board-controls{top:6px;left:6px;padding:5px;gap:5px}.board-controls button,.board-controls a{font-size:10px;padding:6px 8px}#boardStatus{font-size:9px}}
@@ -24,6 +24,7 @@
   <span class="live-dot" id="liveDot"></span><span id="boardStatus">در حال راه‌اندازی تابلو…</span>
   <button id="fullscreenBtn" type="button">تمام‌صفحه</button>
   <button id="refreshBtn" type="button">بروزرسانی همین حالا</button>
+  <button class="farzin-logout" id="farzinLogout" type="button">خروج امن</button>
   <a href="/board-config" target="_blank" rel="noreferrer">کانفیگ تابلو</a>
   <a href="https://www.tgju.org/" target="_blank" rel="noreferrer">TGJU</a>
   <a href="/" target="_blank" rel="noreferrer">استودیو استوری</a>
