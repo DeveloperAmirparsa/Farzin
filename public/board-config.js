@@ -37,8 +37,8 @@ const BOARD_DEFAULTS = {
   showNewsTicker:true, tickerLabel:'تازه‌ترین اخبار جهان', newsFeedUrl:DEFAULT_FEED, newsRefreshSeconds:180,
   tickerSpeed:65, tickerFontSize:17, mainColumns:2, sidePanelPercent:27, mainCardGap:18, mainFontScale:1.1, sideFontScale:1.1, cardScrollSpeed:32, tgjuWidgetCode:'', footerLines:[{id:'board-footer-quote',text:'زر، جلوه‌ای از زیبایی‌ست؛ اعتماد، ماندگارترین دارایی‌ست.',visible:true}]
 };
-const STORY_DEFAULTS = {showMainRates:true,showSideRates:true,showMarketStatus:true,showGoldChart:true,showBothDates:true,showContacts:true,showFooter:true};
-const GLOBAL_DEFAULTS = {brand:'گالری طلا و سکه فرزین',subtitle:'نرخ لحظه‌ای بازار طلا و سکه',mainTitle:'نرخ لحظه‌ای طلا و سکه',sideTitle:'ارز و بازارهای جهانی',chartTitle:'نمودار تغییرات طلای ۱۸ عیار',bgColor:'#0b0b0a',goldColor:'#c8a85c',textColor:'#f5f0e5',mutedColor:'#bcb19b',watermarkOpacity:8,showLogo:true,showFrame:true};
+const STORY_DEFAULTS = {showMainRates:true,showSideRates:true,showMarketStatus:true,showGoldChart:true,showTrends:true,showBothDates:true,showContacts:true,showFooter:true};
+const GLOBAL_DEFAULTS = {brand:'گالری طلا و سکه فرزین',subtitle:'نرخ لحظه‌ای بازار طلا و سکه',mainTitle:'نرخ لحظه‌ای طلا و سکه',sideTitle:'ارز و بازارهای جهانی',chartTitle:'نمودار تغییرات طلای ۱۸ عیار',bgColor:'#1b120e',goldColor:'#c5a875',textColor:'#f8f2e7',mutedColor:'#9f9082',watermarkOpacity:8,showLogo:true,showFrame:true};
 const DEFAULT_CONTACTS = [{id:'contact-phone',title:'تلفن',value:'',visible:true},{id:'contact-whatsapp',title:'واتساپ',value:'',visible:true},{id:'contact-address',title:'آدرس',value:'',visible:true}];
 const DEFAULT_FOOTERS = [{id:'footer-main',text:'نرخ‌ها ممکن است در طول روز تغییر کنند',visible:true}];
 let settings = null;
@@ -188,7 +188,7 @@ $('addMainRate').addEventListener('click',()=>{if(!settings.sections.length)sett
 $('addSideRate').addEventListener('click',()=>{settings.sideRates.push({id:id('side'),label:'دارایی جدید',source:'manual',symbol:'',divisor:1,icon:'auto',unit:'',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0});renderSideRows();});
 $('addBoardContact').addEventListener('click',()=>{settings.contactCards.push({id:id('contact'),title:'عنوان جدید',value:'متن دلخواه',visible:true});renderContactsAndFooters();});
 $('addBoardFooter').addEventListener('click',()=>{settings.boardConfig.footerLines.push({id:id('board-footer'),text:'متن جدید فوتر تابلو',visible:true});renderContactsAndFooters();});
-async function clearProviderKey(provider){if(!confirm('کلید ذخیره‌شده این سرویس حذف شود؟'))return;const payload={};payload[provider==='talasanj'?'clearApiKey':'clearArzhaamKey']=true;const response=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await response.json();if(!response.ok)throw new Error(data.error||'حذف کلید ناموفق بود.');window.apiKeyConfigured=Boolean(data.apiKeyConfigured);window.arzhaamKeyConfigured=Boolean(data.arzhaamKeyConfigured);loadControls();toast('کلید ذخیره‌شده حذف شد.');}
+async function clearProviderKey(provider){const ok=window.FarzinUI?await window.FarzinUI.confirm({title:'حذف کلید سرویس',message:'کلید ذخیره‌شده این سرویس حذف شود؟',confirmLabel:'حذف کلید',danger:true}):confirm('کلید ذخیره‌شده این سرویس حذف شود؟');if(!ok)return;const payload={};payload[provider==='talasanj'?'clearApiKey':'clearArzhaamKey']=true;const response=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await response.json();if(!response.ok)throw new Error(data.error||'حذف کلید ناموفق بود.');window.apiKeyConfigured=Boolean(data.apiKeyConfigured);window.arzhaamKeyConfigured=Boolean(data.arzhaamKeyConfigured);loadControls();toast('کلید ذخیره‌شده حذف شد.');}
 
 $('saveBoardConfig').addEventListener('click',save);
 

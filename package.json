@@ -4,7 +4,10 @@
   "private": true,
   "description": "Farzin Story Studio with expandable TGJU asset catalogue, custom market symbols, per-asset pictogram icons, and production deployment templates",
   "scripts": {
+    "dev": "node server.js",
     "start": "node server.js",
+    "build": "node scripts/smoke-test.js",
+    "lint": "node -e \"const fs=require('fs'),p=require('path'),cp=require('child_process');const files=['server.js',...fs.readdirSync('public').filter(f=>f.endsWith('.js')).map(f=>p.join('public',f))];for(const f of files){const r=cp.spawnSync(process.execPath,['--check',f],{stdio:'inherit'});if(r.status)process.exit(r.status);}\"",
     "check": "node scripts/smoke-test.js"
   },
   "engines": {

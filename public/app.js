@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS = {
     { id: 'footer-main', text: 'نرخ‌ها ممکن است در طول روز تغییر کنند', visible: true }
   ],
   showDate: true, showUpdate: true, showLogo: true,
-  bgColor: '#0b0b0a', goldColor: '#c8a85c', textColor: '#f5f0e5', mutedColor: '#bcb19b',
+  bgColor: '#1b120e', goldColor: '#c5a875', textColor: '#f8f2e7', mutedColor: '#9f9082',
   watermarkOpacity: 8, exportScale: 1, showFrame: true, showAttribution: true, liveEnabled: true,
   schemaVersion: 6,
   // Approximate 2026-11-18 market snapshot; paired quotes assume lower=buy, higher=sell.
@@ -42,7 +42,7 @@ const DEFAULT_SETTINGS = {
     newsFeedUrl:'https://news.google.com/rss/search?q=%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF+%D8%A7%DB%8C%D8%B1%D8%A7%D9%86+OR+%D8%B7%D9%84%D8%A7+OR+%D8%A7%D8%B1%D8%B2+OR+%D9%86%D9%81%D8%AA&hl=fa&gl=IR&ceid=IR:fa',
     newsRefreshSeconds:180, tickerSpeed:65, tickerFontSize:17, chartRange:'1d', mainColumns:2, sidePanelPercent:27, mainCardGap:18, mainFontScale:1.1, sideFontScale:1.1, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0, cardScrollSpeed:32
   },
-  storyConfig: { showMainRates:true, showSideRates:true, showMarketStatus:true, showGoldChart:true, showBothDates:true, showContacts:true, showFooter:true },
+  storyConfig: { showMainRates:true, showSideRates:true, showMarketStatus:true, showGoldChart:true, showTrends:true, showBothDates:true, showContacts:true, showFooter:true },
   sections: [
     { id:'main-prices', title:'نرخ طلا و سکه', visible:true, rows: [
       { id:'mazaneh-main', label:'مظنه', source:'mazaneh', unit:'تومان', manualValue:'', visible:true, featured:true, showTwoPrices:true, buySpreadPercent:0.1272, sellSpreadPercent:-0.1272 },
@@ -144,7 +144,7 @@ function showToast(message) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
 }
 function setConnection(state, label, market) {
-  $('statusDot').className = `status-dot ${state}`;
+  $('statusDot').className = `fz-status-dot ${state}`;
   $('connectionLabel').textContent = label;
   if (market) $('marketStatus').textContent = market;
 }
@@ -169,6 +169,10 @@ function loadSettingsIntoForm() {
     if (!(key in settings)) return;
     if (el.type === 'checkbox') el.checked = Boolean(settings[key]);
     else el.value = settings[key];
+  });
+  document.querySelectorAll('[data-story]').forEach(el => {
+    const key = el.dataset.story;
+    if (settings.storyConfig && key in settings.storyConfig) el.checked = Boolean(settings.storyConfig[key]);
   });
   $('liveEnabled').checked = settings.liveEnabled !== false;
   $('watermarkValue').textContent = `${faNumber(settings.watermarkOpacity)}٪`;
@@ -256,6 +260,13 @@ function bindBasics() {
       renderStory();
     });
   });
+  document.querySelectorAll('[data-story]').forEach(el => {
+    el.addEventListener('change', () => {
+      settings.storyConfig = settings.storyConfig || {};
+      settings.storyConfig[el.dataset.story] = el.checked;
+      renderStory();
+    });
+  });
   $('liveEnabled').addEventListener('change', () => {
     settings.liveEnabled = $('liveEnabled').checked;
     if (settings.liveEnabled) startLive(); else stopLive('استریم زنده خاموش است.');
@@ -274,7 +285,7 @@ function renderSectionEditors() {
       <div class="section-editor-options">
         <label class="mini-check"><input type="checkbox" data-section-visible="${esc(section.id)}" ${section.visible ? 'checked' : ''}> نمایش این بخش در استوری</label>
         <span class="mini-check">${faNumber(section.rows.length)} ردیف</span>
-        <button class="btn btn-outline btn-small" data-action="row-add" data-section-id="${esc(section.id)}">＋ افزودن نرخ</button>
+        <button class="fz-btn fz-btn-secondary fz-btn-sm" data-action="row-add" data-section-id="${esc(section.id)}">＋ افزودن نرخ</button>
       </div>
       ${section.rows.map((row, rowIndex) => `
         <div class="row-editor" data-row="${esc(row.id)}">
@@ -328,10 +339,13 @@ function renderSectionEditors() {
 function findSection(id) { return settings.sections.find(s => s.id === id); }
 function findRow(sectionId, rowId) { const section = findSection(sectionId); return section && section.rows.find(r => r.id === rowId); }
 function makeId(prefix) { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
-function handleEditorAction(action, sectionId, rowId) {
+async function handleEditorAction(action, sectionId, rowId) {
   const si = settings.sections.findIndex(s => s.id === sectionId);
   if (action === 'section-delete') {
-    if (!confirm('این بخش و تمام نرخ‌های داخل آن حذف شود؟')) return;
+    const confirmed = window.FarzinUI
+      ? await window.FarzinUI.confirm({ title: 'حذف بخش نرخ‌ها', message: 'این بخش و تمام نرخ‌های داخل آن حذف شوند؟', confirmLabel: 'حذف بخش', danger: true })
+      : confirm('این بخش و تمام نرخ‌های داخل آن حذف شود؟');
+    if (!confirmed) return;
     if (si >= 0) settings.sections.splice(si, 1);
   } else if (action === 'section-up' && si > 0) {
     [settings.sections[si - 1], settings.sections[si]] = [settings.sections[si], settings.sections[si - 1]];
@@ -416,7 +430,7 @@ function drawStoryPrice(ctx, value, unit, centerX, y, size, color, maxWidth, min
   ctx.font = `800 ${current}px Vazirmatn, Tahoma, sans-serif`;
   ctx.fillText(number, numberX, y);
   if (label) {
-    ctx.fillStyle = '#bcb19b'; ctx.font = `500 ${unitSize}px Vazirmatn, Tahoma, sans-serif`;
+    ctx.fillStyle = settings.mutedColor || '#9f9082'; ctx.font = `500 ${unitSize}px Vazirmatn, Tahoma, sans-serif`;
     ctx.fillText(label, centerX - (numberWidth + gap) / 2 - unitWidth / 2, y);
   }
 }
@@ -446,7 +460,23 @@ function storyQuotePrices(value, row = {}) {
   const quotes = window.FarzinQuotePrices(value, row);
   return quotes ? { buy:faNumber(quotes.buy), sell:faNumber(quotes.sell) } : { buy:'-', sell:'-' };
 }
-function drawAssetIcon(ctx,type,x,y,size=18){if(window.FarzinAssetIcons)window.FarzinAssetIcons.draw(ctx,type,x,y,size,settings.goldColor||'#c8a85c');}
+function rgbaHex(hex, alpha) {
+  const clean = String(hex || '#c5a875').replace('#', '');
+  const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
+  const r = parseInt(full.slice(0, 2), 16), g = parseInt(full.slice(2, 4), 16), b = parseInt(full.slice(4, 6), 16);
+  return `rgba(${Number.isFinite(r) ? r : 197},${Number.isFinite(g) ? g : 168},${Number.isFinite(b) ? b : 117},${alpha})`;
+}
+function drawAssetIcon(ctx,type,x,y,size=18){
+  const primary=settings.goldColor||'#c5a875',secondary=settings.mutedColor||'#9f9082',iconSize=Math.round(size*1.32);
+  ctx.save();
+  ctx.fillStyle='rgba(27,18,14,0.9)';
+  ctx.beginPath();ctx.arc(x,y,iconSize*0.64,0,Math.PI*2);ctx.fill();
+  ctx.lineWidth=1;
+  ctx.strokeStyle=rgbaHex(secondary,0.42);
+  ctx.stroke();
+  ctx.restore();
+  if(window.FarzinAssetIcons)window.FarzinAssetIcons.draw(ctx,type,x,y,iconSize,primary);
+}
 function assetIcon(item){return window.FarzinAssetIcons?window.FarzinAssetIcons.infer(item):'generic';}
 function historySeries() {
   const raw = historyPayload?.points || historyPayload?.history || historyPayload?.data || [];
@@ -464,81 +494,292 @@ function historySeries() {
   return [...unique.values()].sort((a,b)=>a.time-b.time);
 }
 function drawStoryArrow(ctx, x, y, direction) {
-  const color = direction === 'up' ? '#5cc88b' : direction === 'down' ? '#ef7770' : '#a9a18f';
+  const color = direction === 'up' ? '#a4c690' : direction === 'down' ? '#d47786' : '#9f9082';
   ctx.save();ctx.fillStyle=color;ctx.beginPath();
   if(direction==='up'){ctx.moveTo(x,y-9);ctx.lineTo(x-8,y+5);ctx.lineTo(x+8,y+5);}
   else if(direction==='down'){ctx.moveTo(x,y+9);ctx.lineTo(x-8,y-5);ctx.lineTo(x+8,y-5);}
   else {ctx.rect(x-7,y-2,14,4);}
   ctx.closePath();ctx.fill();ctx.restore();
 }
+function drawStoryTrendBadge(ctx, anchorX, centerY, pct, direction, align = 'right') {
+  const hasPct = pct !== null && pct !== undefined && pct !== '' && Number.isFinite(Number(pct));
+  const num = hasPct ? Number(pct) : null;
+  const dir = direction === 'up' || direction === 'down' || direction === 'flat'
+    ? direction
+    : (hasPct ? (num > 0.0001 ? 'up' : num < -0.0001 ? 'down' : 'flat') : null);
+  if (!dir) return 0;
+  const absVal = hasPct ? Math.abs(num) : 0;
+  const sign = dir === 'up' && absVal > 0.0001 ? '+' : dir === 'down' && absVal > 0.0001 ? '-' : '';
+  const text = hasPct ? `${sign}${faNumber(absVal)}٪` : (dir === 'up' ? 'صعودی' : dir === 'down' ? 'نزولی' : '');
+  if (!text) return 0;
+  const textColor = dir === 'up' ? '#cfe3c1' : dir === 'down' ? '#ecc0c7' : '#9f9082';
+  const accentColor = dir === 'up' ? '#a4c690' : dir === 'down' ? '#d47786' : '#9f9082';
+  const fillColor = dir === 'up' ? 'rgba(164,198,144,0.16)' : dir === 'down' ? 'rgba(212,119,134,0.18)' : 'rgba(159,144,130,0.14)';
+  const strokeColor = dir === 'up' ? 'rgba(164,198,144,0.46)' : dir === 'down' ? 'rgba(212,119,134,0.48)' : 'rgba(159,144,130,0.32)';
+  ctx.save();
+  ctx.font = '700 12px Vazirmatn, Tahoma, sans-serif';
+  const textW = ctx.measureText(text).width;
+  const arrowW = 8;
+  const padX = 7;
+  const badgeW = Math.ceil(padX * 2 + arrowW + 5 + textW);
+  const badgeH = 22;
+  const bx = align === 'left' ? anchorX : anchorX - badgeW;
+  const by = centerY - badgeH / 2;
+  ctx.fillStyle = fillColor;
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 1;
+  roundRect(ctx, bx, by, badgeW, badgeH, 6);
+  ctx.fill();
+  ctx.stroke();
+  const ax = bx + padX + 4;
+  ctx.fillStyle = accentColor;
+  ctx.beginPath();
+  if (dir === 'up') {
+    ctx.moveTo(ax, centerY - 4); ctx.lineTo(ax - 4, centerY + 3); ctx.lineTo(ax + 4, centerY + 3);
+  } else if (dir === 'down') {
+    ctx.moveTo(ax, centerY + 4); ctx.lineTo(ax - 4, centerY - 3); ctx.lineTo(ax + 4, centerY - 3);
+  } else {
+    ctx.rect(ax - 4, centerY - 1, 8, 2);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = textColor;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.direction = 'ltr';
+  ctx.fillText(text, ax + 7, centerY + 0.5);
+  ctx.restore();
+  return badgeW;
+}
+function drawStoryBackdropPattern(ctx, width, height, primary, secondary) {
+  ctx.save();
+  ctx.lineWidth = 1;
+  // Subtle Persian 8-point Girih geometric lattice
+  const step = 120;
+  for (let gx = -step / 2; gx <= width + step; gx += step) {
+    for (let gy = -step / 2; gy <= height + step; gy += step) {
+      ctx.strokeStyle = rgbaHex(secondary, 0.042);
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = (i * Math.PI) / 4;
+        const r = i % 2 === 0 ? 36 : 16;
+        const px = gx + Math.cos(a) * r;
+        const py = gy + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.strokeStyle = rgbaHex(primary, 0.032);
+      ctx.beginPath();
+      ctx.moveTo(gx - 42, gy); ctx.lineTo(gx, gy - 42);
+      ctx.lineTo(gx + 42, gy); ctx.lineTo(gx, gy + 42);
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
+  // Royal Shamseh architectural halo behind header masthead
+  const cx = width / 2, cy = 126;
+  [185, 240, 295].forEach((rad, idx) => {
+    ctx.strokeStyle = idx === 1 ? rgbaHex(primary, 0.14) : rgbaHex(secondary, 0.08);
+    ctx.lineWidth = idx === 1 ? 1.4 : 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+function drawGlassPanel(ctx, x, y, w, h, radius, primary, secondary, featured = false) {
+  ctx.save();
+  // 1. 3D floating elevation shadow
+  ctx.shadowColor = featured ? rgbaHex(primary, 0.38) : 'rgba(0, 0, 0, 0.72)';
+  ctx.shadowBlur = featured ? 28 : 20;
+  ctx.shadowOffsetY = featured ? 10 : 7;
+
+  // 2. Frosted Mocha & Deep Chocolate glass body
+  const glassGrad = ctx.createLinearGradient(x, y, x + w * 0.65, y + h);
+  if (featured) {
+    glassGrad.addColorStop(0, 'rgba(56, 38, 29, 0.92)');
+    glassGrad.addColorStop(0.55, 'rgba(43, 29, 22, 0.94)');
+    glassGrad.addColorStop(1, 'rgba(27, 18, 14, 0.96)');
+  } else {
+    glassGrad.addColorStop(0, 'rgba(43, 29, 22, 0.88)');
+    glassGrad.addColorStop(0.6, 'rgba(34, 23, 17, 0.92)');
+    glassGrad.addColorStop(1, 'rgba(27, 18, 14, 0.95)');
+  }
+  ctx.fillStyle = glassGrad;
+  roundRect(ctx, x, y, w, h, radius);
+  ctx.fill();
+  ctx.restore();
+
+  // 3. Diagonal glass sheen highlight clipped to panel
+  ctx.save();
+  roundRect(ctx, x, y, w, h, radius);
+  ctx.clip();
+  const sheen = ctx.createLinearGradient(x, y, x + w, y + h);
+  sheen.addColorStop(0, featured ? rgbaHex(primary, 0.16) : 'rgba(248, 242, 231, 0.055)');
+  sheen.addColorStop(0.42, 'rgba(248, 242, 231, 0.012)');
+  sheen.addColorStop(1, 'rgba(19, 12, 9, 0.24)');
+  ctx.fillStyle = sheen;
+  ctx.fillRect(x, y, w, h);
+  // Subtle top specular highlight hairline inside glass
+  const topHighlight = ctx.createLinearGradient(x, y, x + w, y);
+  topHighlight.addColorStop(0, 'rgba(248,242,231,0)');
+  topHighlight.addColorStop(0.35, featured ? rgbaHex(secondary, 0.52) : 'rgba(248,242,231,0.22)');
+  topHighlight.addColorStop(0.75, featured ? rgbaHex(primary, 0.62) : rgbaHex(secondary, 0.26));
+  topHighlight.addColorStop(1, 'rgba(248,242,231,0)');
+  ctx.fillStyle = topHighlight;
+  ctx.fillRect(x + 12, y + 1, w - 24, 1.5);
+  ctx.restore();
+
+  // 4. Perimeter gradient border light (Muted Gold + Muted Taupe)
+  ctx.save();
+  const borderGrad = ctx.createLinearGradient(x, y, x + w, y + h);
+  if (featured) {
+    borderGrad.addColorStop(0, rgbaHex(secondary, 0.82));
+    borderGrad.addColorStop(0.38, rgbaHex(primary, 0.95));
+    borderGrad.addColorStop(0.72, rgbaHex(secondary, 0.42));
+    borderGrad.addColorStop(1, rgbaHex(primary, 0.78));
+  } else {
+    borderGrad.addColorStop(0, rgbaHex(secondary, 0.44));
+    borderGrad.addColorStop(0.5, rgbaHex(primary, 0.34));
+    borderGrad.addColorStop(1, rgbaHex(secondary, 0.22));
+  }
+  ctx.strokeStyle = borderGrad;
+  ctx.lineWidth = featured ? 1.8 : 1.25;
+  roundRect(ctx, x, y, w, h, radius);
+  ctx.stroke();
+
+  // Inner subtle depth bevel
+  ctx.strokeStyle = 'rgba(248, 242, 231, 0.05)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, x + 2.5, y + 2.5, Math.max(0, w - 5), Math.max(0, h - 5), Math.max(2, radius - 2.5));
+  ctx.stroke();
+  ctx.restore();
+
+  if (featured) {
+    ctx.save();
+    const spine = ctx.createLinearGradient(x, y + h * 0.22, x, y + h * 0.78);
+    spine.addColorStop(0, secondary);
+    spine.addColorStop(0.5, primary);
+    spine.addColorStop(1, secondary);
+    ctx.fillStyle = spine;
+    roundRect(ctx, x + 2, y + h * 0.24, 4, h * 0.52, 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
 function drawStoryChart(ctx, x, y, w, h) {
-  const gold=settings.goldColor||'#c8a85c', muted=settings.mutedColor||'#bcb19b';
-  ctx.save();ctx.fillStyle='#ffffff08';ctx.strokeStyle=`${gold}68`;ctx.lineWidth=1.3;roundRect(ctx,x,y,w,h,16);ctx.fill();ctx.stroke();ctx.restore();
-  drawText(ctx,settings.chartTitle||'نمودار تغییرات طلای ۱۸ عیار',x+w-22,y+36,22,gold,'right',700,w-44);
-  const points=historySeries(),gx=x+24,gy=y+62,gw=w-48,gh=h-102;
-  ctx.save();ctx.strokeStyle='#ffffff13';ctx.lineWidth=1;
+  const primary=settings.goldColor||'#c5a875', secondary=settings.mutedColor||'#9f9082';
+  drawGlassPanel(ctx, x, y, w, h, 20, primary, secondary, false);
+  drawText(ctx,settings.chartTitle||'نمودار تغییرات طلای ۱۸ عیار',x+w-24,y+37,22,'#e8d8be','right',700,w-48);
+  const points=historySeries(),gx=x+26,gy=y+62,gw=w-52,gh=h-102;
+  ctx.save();ctx.strokeStyle=rgbaHex(secondary,0.14);ctx.lineWidth=1;
   for(let i=1;i<=3;i++){const yy=gy+gh*i/4;ctx.beginPath();ctx.moveTo(gx,yy);ctx.lineTo(gx+gw,yy);ctx.stroke();}
   if(points.length>1){
     const vals=points.map(p=>p.value),min=Math.min(...vals),max=Math.max(...vals),span=max-min||1;
     const coords=points.map((p,i)=>({x:gx+i/(points.length-1)*gw,y:gy+gh-(p.value-min)/span*gh}));
-    const fill=ctx.createLinearGradient(0,gy,0,gy+gh);fill.addColorStop(0,`${gold}38`);fill.addColorStop(1,`${gold}00`);
+    const fill=ctx.createLinearGradient(0,gy,0,gy+gh);fill.addColorStop(0,rgbaHex(primary,0.34));fill.addColorStop(0.7,rgbaHex('#6e503e',0.12));fill.addColorStop(1,'rgba(27,18,14,0)');
     ctx.beginPath();coords.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.lineTo(gx+gw,gy+gh);ctx.lineTo(gx,gy+gh);ctx.closePath();ctx.fillStyle=fill;ctx.fill();
-    ctx.beginPath();coords.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle=gold;ctx.lineWidth=3;ctx.lineJoin='round';ctx.stroke();
-    const last=coords.at(-1);ctx.fillStyle=gold;ctx.beginPath();ctx.arc(last.x,last.y,5,0,Math.PI*2);ctx.fill();
-    drawText(ctx,faNumber(max),gx+gw-2,gy+18,14,muted,'right',500,180,10);drawText(ctx,faNumber(min),gx+gw-2,gy+gh-4,14,muted,'right',500,180,10);
-  } else drawText(ctx,'اطلاعات تاریخی کافی نیست',x+w/2,gy+gh/2,17,muted,'center',500,w-50,12);
+    const lineGrad=ctx.createLinearGradient(gx,0,gx+gw,0);lineGrad.addColorStop(0,secondary);lineGrad.addColorStop(0.55,primary);lineGrad.addColorStop(1,'#e8d8be');
+    ctx.save();ctx.shadowColor=rgbaHex(primary,0.52);ctx.shadowBlur=12;
+    ctx.beginPath();coords.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle=lineGrad;ctx.lineWidth=3.2;ctx.lineJoin='round';ctx.stroke();ctx.restore();
+    const last=coords.at(-1);
+    ctx.fillStyle=rgbaHex(primary,0.28);ctx.beginPath();ctx.arc(last.x,last.y,11,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=primary;ctx.beginPath();ctx.arc(last.x,last.y,5.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#f8f2e7';ctx.beginPath();ctx.arc(last.x,last.y,2.4,0,Math.PI*2);ctx.fill();
+    drawText(ctx,faNumber(max),gx+gw-2,gy+18,14,secondary,'right',500,180,10);drawText(ctx,faNumber(min),gx+gw-2,gy+gh-4,14,secondary,'right',500,180,10);
+  } else drawText(ctx,'اطلاعات تاریخی کافی نیست',x+w/2,gy+gh/2,17,secondary,'center',500,w-50,12);
   const date=tehranDateParts();
-  drawText(ctx,`${date.weekday} · ${date.date}`,x+w-22,y+h-15,15,gold,'right',600,w*.48,11);
-     ctx.restore();
+  drawText(ctx,`${date.weekday} · ${date.date}`,x+w-24,y+h-15,15,primary,'right',700,w*.48,11);
+  ctx.restore();
 }
-function drawCardSurface(ctx,x,y,w,h,featured=false){const hue=42+12*(.5+.5*Math.sin(Date.now()/1300));ctx.save();ctx.shadowColor=`hsla(${hue},82%,62%,${featured?.48:.3})`;ctx.shadowBlur=featured?18:13;ctx.fillStyle=featured?'#111714':'#0d1312';ctx.strokeStyle=featured?'#d8bd8380':'#ffffff24';ctx.lineWidth=1.2;roundRect(ctx,x,y,w,h,22);ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.strokeStyle='#ffffff0b';ctx.lineWidth=1;roundRect(ctx,x+2,y+2,w-4,h-4,20);ctx.stroke();ctx.restore();if(featured){ctx.save();ctx.fillStyle='#d8bd83';roundRect(ctx,x+1,y+h*.28,3,h*.44,2);ctx.fill();ctx.restore();}}
+function drawCardSurface(ctx,x,y,w,h,featured=false){
+  const primary=settings.goldColor||'#c5a875',secondary=settings.mutedColor||'#9f9082';
+  drawGlassPanel(ctx,x,y,w,h,22,primary,secondary,featured);
+}
 function drawStory(canvas, scale) {
   const width=1080,height=1920;canvas.width=width*scale;canvas.height=height*scale;
   const ctx=canvas.getContext('2d');ctx.setTransform(scale,0,0,scale,0,0);
-  const gold=settings.goldColor||'#c8a85c',main=settings.textColor||'#f5f0e5',muted=settings.mutedColor||'#bcb19b',bg=settings.bgColor||'#0b0b0a';
-  const gradient=ctx.createRadialGradient(540,470,40,540,950,1120);gradient.addColorStop(0,mixWithBlack(gold,.22));gradient.addColorStop(.52,mixWithBlack(bg,1));gradient.addColorStop(1,'#050504');ctx.fillStyle=gradient;ctx.fillRect(0,0,width,height);
+  const gold=settings.goldColor||'#c5a875',main=settings.textColor||'#f8f2e7',muted=settings.mutedColor||'#9f9082',bg=settings.bgColor||'#1b120e';
+  // Deep Chocolate base + layered Mocha, Muted Gold & Champagne radial luxury light
+  ctx.fillStyle=bg;ctx.fillRect(0,0,width,height);
+  const topGlow=ctx.createRadialGradient(540,210,20,540,290,780);
+  topGlow.addColorStop(0,rgbaHex(gold,0.22));topGlow.addColorStop(0.45,rgbaHex('#6e503e',0.14));topGlow.addColorStop(1,'rgba(27,18,14,0)');
+  ctx.fillStyle=topGlow;ctx.fillRect(0,0,width,height);
+  const sideGlow=ctx.createRadialGradient(140,1480,10,140,1480,760);
+  sideGlow.addColorStop(0,rgbaHex(muted,0.12));sideGlow.addColorStop(0.5,rgbaHex(gold,0.06));sideGlow.addColorStop(1,'rgba(27,18,14,0)');
+  ctx.fillStyle=sideGlow;ctx.fillRect(0,0,width,height);
+  drawStoryBackdropPattern(ctx,width,height,gold,muted);
+
   if(logoImage.complete&&logoImage.naturalWidth){const size=810;ctx.save();ctx.globalAlpha=Math.max(0,Math.min(.3,Number(settings.watermarkOpacity||0)/100));ctx.globalCompositeOperation='screen';ctx.drawImage(logoImage,(width-size)/2,615,size,size);ctx.restore();}
-  if(settings.showFrame){ctx.strokeStyle=`${gold}88`;ctx.lineWidth=2;roundRect(ctx,30,30,1020,1860,24);ctx.stroke();ctx.strokeStyle=`${gold}30`;ctx.lineWidth=1;roundRect(ctx,43,43,994,1860,18);ctx.stroke();}
+
+  if(settings.showFrame){
+    ctx.save();
+    const frameGrad=ctx.createLinearGradient(30,30,1050,1890);
+    frameGrad.addColorStop(0,rgbaHex(muted,0.75));
+    frameGrad.addColorStop(0.32,rgbaHex(gold,0.88));
+    frameGrad.addColorStop(0.68,rgbaHex(muted,0.4));
+    frameGrad.addColorStop(1,rgbaHex(gold,0.78));
+    ctx.strokeStyle=frameGrad;ctx.lineWidth=2;roundRect(ctx,30,30,1020,1860,24);ctx.stroke();
+    ctx.strokeStyle=rgbaHex(muted,0.22);ctx.lineWidth=1;roundRect(ctx,43,43,994,1834,18);ctx.stroke();
+    // Subtle corner diamond accents
+    ctx.fillStyle='#e8d8be';
+    [[43,43],[1037,43],[43,1877],[1037,1877]].forEach(([cx,cy])=>{
+      ctx.beginPath();ctx.moveTo(cx,cy-5);ctx.lineTo(cx+5,cy);ctx.lineTo(cx,cy+5);ctx.lineTo(cx-5,cy);ctx.closePath();ctx.fill();
+    });
+    ctx.restore();
+  }
+
   if(settings.showLogo&&logoImage.complete&&logoImage.naturalWidth){
     const size=68,gap=20,brand=String(settings.brand||'');ctx.font='800 44px Vazirmatn, Tahoma, sans-serif';
     const brandW=Math.min(790,ctx.measureText(brand).width),groupW=brandW+gap+size,left=(width-groupW)/2;
-    ctx.save();ctx.shadowColor=`${gold}55`;ctx.shadowBlur=18;ctx.drawImage(logoImage,left+brandW+gap,54,size,size);ctx.restore();
-    drawFitText(ctx,brand,left+brandW/2,101,44,gold,'center',800,brandW,24);
-  } else drawText(ctx,settings.brand||'',540,128,44,gold,'center',800,900,24);
+    ctx.save();ctx.shadowColor=rgbaHex(gold,0.6);ctx.shadowBlur=22;ctx.drawImage(logoImage,left+brandW+gap,54,size,size);ctx.restore();
+    drawFitText(ctx,brand,left+brandW/2,101,44,main,'center',800,brandW,24);
+  } else drawText(ctx,settings.brand||'',540,128,44,main,'center',800,900,24);
   drawText(ctx,settings.subtitle||'',540,settings.showLogo?154:169,21,muted,'center',500,920,15);
+
   const cfg=settings.storyConfig||{};
   const headerY=settings.showLogo?246:196,headerCellW=455,headerCellH=58,headerGapX=30,headerGapY=10,headerX=70;
   const dp=tehranDateParts(),isOpen=latestPayload?.market_open,headerCards=[];
-   if(cfg.showBothDates!==false)headerCards.push({primary:`${dp.weekday} · ${dp.date}`,color:gold});
-  if(cfg.showMarketStatus!==false)headerCards.push({primary:isOpen===true?'بازار باز است':isOpen===false?'بازار بسته است':'وضعیت بازار نامشخص',color:isOpen===true?'#62c98e':isOpen===false?'#dc8876':'#b9a66d'});
-  headerCards.push({primary:`ساعت تهران ${tehranClock()}`,color:muted},{primary:globalUpdatedAt?`آخرین نرخ ${formatTehranTime(globalUpdatedAt)}`:'در انتظار دریافت نرخ',color:muted});
+   if(cfg.showBothDates!==false)headerCards.push({primary:`${dp.weekday} · ${dp.date}`,color:'#e8d8be',highlight:true});
+  if(cfg.showMarketStatus!==false)headerCards.push({primary:isOpen===true?'بازار باز است':isOpen===false?'بازار بسته است':'وضعیت بازار نامشخص',color:isOpen===true?'#a4c690':isOpen===false?'#d47786':muted,highlight:isOpen===true});
+  headerCards.push({primary:`ساعت تهران ${tehranClock()}`,color:main},{primary:globalUpdatedAt?`آخرین نرخ ${formatTehranTime(globalUpdatedAt)}`:'در انتظار دریافت نرخ',color:muted});
   headerCards.forEach((card,i)=>{
     const col=i%2,row=Math.floor(i/2),x=headerX+col*(headerCellW+headerGapX),y=headerY+row*(headerCellH+headerGapY);
-    ctx.save();ctx.fillStyle='#ffffff09';ctx.strokeStyle=`${gold}65`;ctx.lineWidth=1.4;roundRect(ctx,x,y,headerCellW,headerCellH,15);ctx.fill();ctx.stroke();ctx.restore();
-     drawFitText(ctx,card.primary,x+headerCellW/2,y+37,20,card.color,'center',700,headerCellW-30,13);
+    drawGlassPanel(ctx,x,y,headerCellW,headerCellH,16,gold,muted,Boolean(card.highlight));
+    drawFitText(ctx,card.primary,x+headerCellW/2,y+37,20,card.color,'center',700,headerCellW-30,13);
   });
   let cursorY=headerY+Math.ceil(headerCards.length/2)*(headerCellH+headerGapY)-headerGapY+18;
+
   const drawRateCard=(row,x,y,w,h)=>{
     const data=rateDataFor(row),featured=Boolean(row.featured),unit=data.unit||row.unit||'',single=row.showTwoPrices===false;
+    const showTrend=cfg.showTrends!==false;
+    const hasTrendData=showTrend&&((data.change_pct!==null&&data.change_pct!==undefined&&data.change_pct!==''&&Number.isFinite(Number(data.change_pct)))||data.direction==='up'||data.direction==='down');
     drawCardSurface(ctx,x,y,w,h,featured);
     drawAssetIcon(ctx,assetIcon(row),x+22,y+Math.min(18,h*.22),Math.min(17,h*.22));
-    if(single){drawFitText(ctx,row.label||'',x+w-18,y+Math.min(21,h*.29),Math.min(19,h*.24),muted,'right',700,w-48,12);}
-    else {drawFitText(ctx,row.label||'',x+w/2,y+Math.min(21,h*.29),Math.min(19,h*.24),muted,'center',700,w-64,12);}
+    if(single){
+      const badgeW=hasTrendData?drawStoryTrendBadge(ctx,x+42,y+Math.min(18,h*.22),data.change_pct,data.direction,'left'):0;
+      drawFitText(ctx,row.label||'',x+w-18,y+Math.min(21,h*.29),Math.min(19,h*.24),main,'right',700,w-(badgeW?66+badgeW:48),12);
+    } else {
+      const badgeW=hasTrendData?drawStoryTrendBadge(ctx,x+w-12,y+Math.min(18,h*.22),data.change_pct,data.direction,'right'):0;
+      drawFitText(ctx,row.label||'',x+w/2,y+Math.min(21,h*.29),Math.min(19,h*.24),main,'center',700,badgeW?Math.max(96,w-(badgeW+46)*2):w-64,12);
+    }
     if(single){
        const value=data.value===''?'-':formatValue(data.value);
-       drawStoryPrice(ctx,value,unit,x+w/2,y+h*.73,Math.min(56,h*.55,w*.18),featured?'#f0d17a':main,w-36,18);
-      if(h>=90&&data.change_pct!==null&&data.change_pct!==undefined&&Number.isFinite(Number(data.change_pct))){const pct=Number(data.change_pct),trendColor=data.direction==='up'?'#69d79a':data.direction==='down'?'#ef8580':muted,trend=`${faNumber(Math.abs(pct))}٪`;drawStoryArrow(ctx,x+25,y+h-19,data.direction);drawFitText(ctx,trend,x+58,y+h-13,16,trendColor,'left',600,w*.3,11);}
+       drawStoryPrice(ctx,value,unit,x+w/2,y+h*.73,Math.min(56,h*.55,w*.18),featured?'#e8d8be':main,w-36,12);
       return;
     }
      const quotes=storyQuotePrices(data.value,row),valueSize=Math.min(44,h*.32,w*.095),labelSize=Math.min(14,h*.18),columnW=(w-34)/2,labelY=y+h*.45,valueY=y+h*.84;
-     drawFitText(ctx,'خرید ما',x+w-columnW/2-14,labelY,labelSize,'#73d6a4','center',700,columnW-12,11);
-     drawStoryPrice(ctx,quotes.buy,unit,x+w-columnW/2-14,valueY,valueSize,'#a8f0c8',columnW-12,14);
-     drawFitText(ctx,'فروش ما',x+columnW/2+14,labelY,labelSize,'#f1a07f','center',700,columnW-12,11);
-     drawStoryPrice(ctx,quotes.sell,unit,x+columnW/2+14,valueY,valueSize,'#ffd0ad',columnW-12,14);
+     drawFitText(ctx,'خرید ما',x+w-columnW/2-14,labelY,labelSize,'#d47786','center',700,columnW-12,11);
+     drawStoryPrice(ctx,quotes.buy,unit,x+w-columnW/2-14,valueY,valueSize,'#ecc0c7',columnW-12,10);
+     drawFitText(ctx,'فروش ما',x+columnW/2+14,labelY,labelSize,'#a4c690','center',700,columnW-12,11);
+     drawStoryPrice(ctx,quotes.sell,unit,x+columnW/2+14,valueY,valueSize,'#cfe3c1',columnW-12,10);
   };
   if(cfg.showMainRates!==false){
     const rows=activeSections().flatMap(sec=>sec.rows.filter(row=>row.visible!==false));
-    drawText(ctx,settings.mainTitle||'قیمت لحظه‌ای طلا و سکه',1010,cursorY+27,28,gold,'right',800,930,18);cursorY+=43;
+    drawText(ctx,settings.mainTitle||'قیمت لحظه‌ای طلا و سکه',1010,cursorY+27,28,'#e8d8be','right',800,930,18);
+    ctx.save();const ruleG=ctx.createLinearGradient(70,0,580,0);ruleG.addColorStop(0,'rgba(159,144,130,0)');ruleG.addColorStop(0.65,rgbaHex(muted,0.35));ruleG.addColorStop(1,rgbaHex(gold,0.75));ctx.fillStyle=ruleG;ctx.fillRect(70,cursorY+18,520,1.5);ctx.restore();
+    cursorY+=43;
     const x0=70,areaW=940,gapX=14,gapY=10,cols=rows.length>1?2:1,rowCount=Math.max(1,Math.ceil(rows.length/cols)),cardW=(areaW-gapX*(cols-1))/cols;
     const cardH=Math.max(58,Math.min(112,Math.floor((430-gapY*(rowCount-1))/rowCount)));
     rows.forEach((row,i)=>drawRateCard(row,x0+(i%cols)*(cardW+gapX),cursorY+Math.floor(i/cols)*(cardH+gapY),cardW,cardH));
@@ -546,7 +787,9 @@ function drawStory(canvas, scale) {
   }
   if(cfg.showSideRates!==false){
     const visible=(settings.sideRates||[]).filter(item=>item.visible!==false);
-    drawText(ctx,settings.sideTitle||'ارز و بازارهای جهانی',1010,cursorY+25,25,gold,'right',800,930,17);cursorY+=39;
+    drawText(ctx,settings.sideTitle||'ارز و بازارهای جهانی',1010,cursorY+25,25,'#e8d8be','right',800,930,17);
+    ctx.save();const ruleG=ctx.createLinearGradient(70,0,580,0);ruleG.addColorStop(0,'rgba(159,144,130,0)');ruleG.addColorStop(0.65,rgbaHex(gold,0.38));ruleG.addColorStop(1,rgbaHex(muted,0.75));ctx.fillStyle=ruleG;ctx.fillRect(70,cursorY+17,520,1.5);ctx.restore();
+    cursorY+=39;
     const x0=70,areaW=940,gapX=14,gapY=8,cols=visible.length>1?2:1,rowCount=Math.max(1,Math.ceil(visible.length/cols)),cardW=(areaW-gapX*(cols-1))/cols;
     const cardH=Math.max(52,Math.min(72,Math.floor((190-gapY*(rowCount-1))/rowCount)));
     visible.forEach((item,i)=>drawRateCard(item,x0+(i%cols)*(cardW+gapX),cursorY+Math.floor(i/cols)*(cardH+gapY),cardW,cardH));
@@ -556,9 +799,9 @@ function drawStory(canvas, scale) {
    if(cfg.showGoldChart!==false){const chartY=Math.max(cursorY,1120),chartH=210;drawStoryChart(ctx,70,chartY,940,chartH);chartBottom=chartY+chartH;}
   const contactCards=(settings.contactCards||[]).filter(card=>card.visible!==false&&String(card.value||'').trim());
   let contentBottom=chartBottom;
-   if(cfg.showContacts!==false&&contactCards.length){const y=Math.max(chartBottom+22,1330),x0=70,w=940,gap=12,cols=Math.min(3,contactCards.length),cw=(w-gap*(cols-1))/cols,availableH=Math.max(0,1585-y),maxRows=Math.floor((availableH+gap)/56),shown=contactCards.slice(0,cols*maxRows),rows=Math.ceil(shown.length/cols),ch=rows?Math.min(100,Math.floor((availableH-gap*(rows-1))/rows)):0;shown.forEach((card,i)=>{const x=x0+(i%cols)*(cw+gap),cy=y+Math.floor(i/cols)*(ch+gap),mid=cy+ch/2;ctx.save();ctx.fillStyle='#ffffff09';ctx.strokeStyle=`${gold}75`;ctx.lineWidth=1.3;roundRect(ctx,x,cy,cw,ch,14);ctx.fill();ctx.stroke();ctx.restore();drawFitText(ctx,card.title||'',x+cw/2,mid-7,15,muted,'center',600,cw-28,10);drawFitText(ctx,card.value||'',x+cw/2,mid+17,20,main,'center',700,cw-28,11);});if(rows)contentBottom=y+rows*ch+(rows-1)*gap;}
+   if(cfg.showContacts!==false&&contactCards.length){const y=Math.max(chartBottom+22,1330),x0=70,w=940,gap=12,cols=Math.min(3,contactCards.length),cw=(w-gap*(cols-1))/cols,availableH=Math.max(0,1585-y),maxRows=Math.floor((availableH+gap)/56),shown=contactCards.slice(0,cols*maxRows),rows=Math.ceil(shown.length/cols),ch=rows?Math.min(100,Math.floor((availableH-gap*(rows-1))/rows)):0;shown.forEach((card,i)=>{const x=x0+(i%cols)*(cw+gap),cy=y+Math.floor(i/cols)*(ch+gap),mid=cy+ch/2;drawGlassPanel(ctx,x,cy,cw,ch,16,gold,muted,false);drawFitText(ctx,card.title||'',x+cw/2,mid-7,15,muted,'center',600,cw-28,10);drawFitText(ctx,card.value||'',x+cw/2,mid+17,20,main,'center',700,cw-28,11);});if(rows)contentBottom=y+rows*ch+(rows-1)*gap;}
   const footers=(settings.footerLines||[]).filter(line=>line.visible!==false&&String(line.text||'').trim());const footerStart=Math.max(1620,contentBottom+32),footerCount=Math.max(0,Math.min(4,Math.floor((1830-footerStart)/27)));if(cfg.showFooter!==false&&footers.length){footers.slice(0,footerCount).forEach((line,i)=>drawFitText(ctx,line.text,540,footerStart+i*27,17,muted,'center',500,920,11));}
-  drawText(ctx,'تمام نرخ‌ها از TGJU · tgju.org',540,1854,18,gold,'center',600,930,13);drawText(ctx,'FARZIN COIN · منبع داده: شبکه اطلاع‌رسانی طلا و ارز',540,1885,15,'#897d62','center',500,960,11);
+  drawText(ctx,'تمام نرخ‌ها از TGJU · tgju.org',540,1854,18,gold,'center',700,930,13);drawText(ctx,'FARZIN COIN · منبع داده: شبکه اطلاع‌رسانی طلا و ارز',540,1885,15,muted,'center',500,960,11);
 }
 
 function renderStory() {
@@ -587,6 +830,7 @@ function applyPricePayload(payload) {
   } else {
     setConnection('error', 'دریافت نرخ از TGJU ناموفق بود', payload.last_error || Object.values(payload.errors || {}).join(' · ') || 'ارتباط با منبع قیمت برقرار نشد.');
   }
+  window.FarzinUI?.renderMarketTable?.(payload, $('marketSearch')?.value || '');
   renderStory();
 }
 async function loadInitialPrices() {
@@ -723,8 +967,15 @@ $('importConfig').addEventListener('change', async event => {
   event.target.value='';
 });
 $('resetConfig').addEventListener('click', async () => {
-  if (!confirm('تمام تنظیمات ظاهری و محتوایی به حالت اولیه برگردند؟ کلید API حذف نمی‌شود.')) return;
+  const confirmed = window.FarzinUI
+    ? await window.FarzinUI.confirm({ title: 'بازگردانی تنظیمات پیش‌فرض', message: 'تمام تنظیمات ظاهری و محتوایی به حالت اولیه برگردند؟', confirmLabel: 'بازگردانی پیش‌فرض', danger: true })
+    : confirm('تمام تنظیمات ظاهری و محتوایی به حالت اولیه برگردند؟');
+  if (!confirmed) return;
   settings=normalizeSettings(clone(DEFAULT_SETTINGS)); loadSettingsIntoForm(); await saveSettingsOnly();
+});
+
+$('marketSearch')?.addEventListener('input', event => {
+  window.FarzinUI?.renderMarketTable?.(latestPayload, event.target.value);
 });
 
 async function init() {

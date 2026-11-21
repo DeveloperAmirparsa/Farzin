@@ -28,6 +28,7 @@ const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const sessionCookie = 'farzin_session';
 const loginAttempts = new Map();
 const sessions = new Map();
+const handoffCodes = new Map();
 // Listen on all interfaces so a TV / second device on the shop LAN can open the board.
 const requestedHost = String(process.env.HOST || '').trim();
 // Earlier v4/v5 .env files used 127.0.0.1. Override that legacy default so
@@ -192,6 +193,31 @@ let tgjuSnapshot = {
 };
 let priceHistory = readJson(HISTORY_FILE, []);
 if (!Array.isArray(priceHistory)) priceHistory = [];
+const tehranDayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' });
+let dailyObservedRangeDate = '';
+const dailyObservedRanges = new Map();
+
+function applyObservedIntradayRange(symbolKey, record) {
+  if (!record?.valid || !Number.isFinite(record.price)) return record;
+  const dayKey = tehranDayFmt.format(new Date());
+  if (dayKey !== dailyObservedRangeDate) {
+    dailyObservedRangeDate = dayKey;
+    dailyObservedRanges.clear();
+  }
+  const prev = dailyObservedRanges.get(symbolKey);
+  const candidatesLow = [record.price];
+  const candidatesHigh = [record.price];
+  if (Number.isFinite(record.low) && record.low > 0) candidatesLow.push(record.low);
+  if (Number.isFinite(record.high) && record.high > 0) candidatesHigh.push(record.high);
+  if (prev) {
+    candidatesLow.push(prev.low);
+    candidatesHigh.push(prev.high);
+  }
+  const low = Math.min(...candidatesLow);
+  const high = Math.max(...candidatesHigh);
+  dailyObservedRanges.set(symbolKey, { low, high });
+  return { ...record, low, high };
+}
 
 function normalizeTgjuRecord(item, map, receivedAt, previousValue) {
   const rawValue = item?.p ?? item?.price ?? item?.value ?? item?.last;
@@ -276,21 +302,28 @@ function makeTgjuSnapshot(current, feed) {
   for (const [symbol, item] of Object.entries(current)) {
     if (!item || typeof item !== 'object') continue;
     const generic = normalizeTgjuRecord(item, { toman: false, unit: '' }, receivedAt, tgjuSnapshot.assets?.[symbol]?.price);
-    if (generic?.valid) assets[symbol] = { ...generic, symbol, label: String(item.name || item.title || item.n || item.symbol || symbol), category: String(item.category || item.market || '') };
+    if (generic?.valid) {
+      const tracked = applyObservedIntradayRange(`asset:${symbol}`, generic);
+      assets[symbol] = { ...tracked, symbol, label: String(item.name || item.title || item.n || item.symbol || symbol), category: String(item.category || item.market || '') };
+    }
   }
   const previous = { ...tgjuSnapshot.prices, ...tgjuSnapshot.sideRates };
   for (const [target, config] of Object.entries(TGJU_MAP)) {
     const found = getTgjuRecord(current, config.keys);
     const normalized = found ? normalizeTgjuRecord(found.item, config, receivedAt, previous[target]?.price) : null;
     if (!normalized?.valid) { errors[target] = normalized?.validation_error || `نماد ${config.keys.join('/')} در پاسخ TGJU موجود نیست یا قیمت معتبری ندارد.`; continue; }
-    if (target === 'usd' || target === 'aed' || target === 'eur' || target === 'silver' || target === 'oil') sideRates[target] = normalized;
-    else prices[target] = normalized;
+    const tracked = applyObservedIntradayRange(`rate:${target}`, normalized);
+    if (target === 'usd' || target === 'aed' || target === 'eur' || target === 'silver' || target === 'oil') sideRates[target] = tracked;
+    else prices[target] = tracked;
   }
   // TGJU does not list a separate 21-karat gram symbol in the public market feed;
   // calculate it transparently from the same 18-karat live quote.
   if (prices.gram18) {
     prices.gram21 = {
-      ...prices.gram18, price: prices.gram18.price * (21 / 18),
+      ...prices.gram18,
+      price: prices.gram18.price * (21 / 18),
+      low: Number.isFinite(prices.gram18.low) ? prices.gram18.low * (21 / 18) : null,
+      high: Number.isFinite(prices.gram18.high) ? prices.gram18.high * (21 / 18) : null,
       source: 'TGJU · محاسبه‌شده از طلای ۱۸ عیار', derived: true,
       note: 'محاسبه از نرخ ۱۸ عیار × ۲۱ ÷ ۱۸'
     };
@@ -377,30 +410,108 @@ function signSession(payload) {
   const signature = crypto.createHmac('sha256', SESSION_SECRET).update(encoded).digest('base64url');
   return `${encoded}.${signature}`;
 }
-function hasValidSession(req) {
+function extractRequestToken(req) {
+  const auth = String(req.headers.authorization || '');
+  if (auth.startsWith('Bearer ')) {
+    const bearer = auth.slice(7).trim();
+    if (bearer) return bearer;
+  }
   const cookies = Object.fromEntries(String(req.headers.cookie || '').split(';').map(part => {
     const index = part.indexOf('=');
     return index < 0 ? ['', ''] : [part.slice(0, index).trim(), part.slice(index + 1).trim()];
   }));
-  const [encoded, signature, extra] = String(cookies[sessionCookie] || '').split('.');
-  if (!encoded || !signature || extra) return false;
+  return String(cookies[sessionCookie] || '');
+}
+function verifySessionToken(token) {
+  const [encoded, signature, extra] = String(token || '').split('.');
+  if (!encoded || !signature || extra) return null;
   const expected = crypto.createHmac('sha256', SESSION_SECRET).update(encoded).digest('base64url');
-  if (!safeEqual(signature, expected)) return false;
+  if (!safeEqual(signature, expected)) return null;
   try {
     const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-    return payload.user === ADMIN_USER && Number(payload.exp) > Date.now() && sessions.get(payload.nonce) === Number(payload.exp);
-  } catch { return false; }
+    if (payload.user === ADMIN_USER && Number(payload.exp) > Date.now() && sessions.get(payload.nonce) === Number(payload.exp)) {
+      return payload;
+    }
+    return null;
+  } catch { return null; }
+}
+function hasValidSession(req) {
+  return Boolean(verifySessionToken(extractRequestToken(req)));
+}
+function createHandoffCode(token) {
+  const now = Date.now();
+  for (const [key, item] of handoffCodes) if (item.exp <= now) handoffCodes.delete(key);
+  while (handoffCodes.size >= 500) {
+    const oldest = handoffCodes.keys().next().value;
+    if (!oldest) break;
+    handoffCodes.delete(oldest);
+  }
+  const code = crypto.randomBytes(18).toString('base64url');
+  handoffCodes.set(code, { token, exp: now + 30_000 });
+  return code;
+}
+function consumeHandoffCode(code) {
+  if (!code) return null;
+  const item = handoffCodes.get(String(code));
+  handoffCodes.delete(String(code));
+  if (!item || item.exp <= Date.now()) return null;
+  return verifySessionToken(item.token) ? item.token : null;
+}
+function isSecureRequest(req) {
+  const proto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const forwarded = String(req.headers.forwarded || '');
+  const origin = String(req.headers.origin || '');
+  const referer = String(req.headers.referer || '');
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+  const hostname = host.replace(/:\d+$/, '').toLowerCase();
+  const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) || hostname.includes(':');
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+  return Boolean(
+    req.socket.encrypted ||
+    proto === 'https' ||
+    /\bproto=https\b/i.test(forwarded) ||
+    origin.startsWith('https://') ||
+    referer.startsWith('https://') ||
+    (!isLocal && !isIp && /\.(run\.app|googleusercontent\.com|aistudio\.google\.com)$/i.test(hostname))
+  );
 }
 function sessionCookieHeader(req, token = '', clear = false) {
-  const secure = req.socket.encrypted || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
-  return `${sessionCookie}=${token}; Path=/; HttpOnly; SameSite=Strict${secure ? '; Secure' : ''}${clear ? '; Max-Age=0' : `; Max-Age=${SESSION_TTL_SECONDS}`}`;
+  const secure = isSecureRequest(req);
+  const sameSite = secure ? 'None' : 'Strict';
+  const partitioned = secure ? '; Partitioned' : '';
+  return `${sessionCookie}=${token}; Path=/; HttpOnly; SameSite=${sameSite}${secure ? '; Secure' : ''}${partitioned}${clear ? '; Max-Age=0' : `; Max-Age=${SESSION_TTL_SECONDS}`}`;
+}
+function isCrossSiteCookieMutation(req) {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return false;
+  const auth = String(req.headers.authorization || '');
+  if (auth.startsWith('Bearer ') && auth.slice(7).trim()) return false;
+  const origin = String(req.headers.origin || '').trim();
+  if (!origin) return false;
+  try {
+    const originHost = new URL(origin).host.toLowerCase();
+    const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim().toLowerCase();
+    const host = String(req.headers.host || '').trim().toLowerCase();
+    return originHost !== forwardedHost && originHost !== host;
+  } catch {
+    return true;
+  }
 }
 function sendForbidden(res) {
   res.writeHead(403, { 'Cache-Control': 'no-store', 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(`<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b0b0a"><title>دسترسی غیرمجاز · فرزین</title><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 0,#392d17 0,transparent 42%),#0b0b0a;color:#f5f0e5;font:16px Vazirmatn,Tahoma,sans-serif}.card{width:min(100%,520px);text-align:center;padding:48px 36px;border:1px solid #574728;border-radius:24px;background:linear-gradient(145deg,#191710,#100f0c);box-shadow:0 28px 100px #0009}.code{color:#c8a85c;font:800 clamp(64px,16vw,112px)/1 sans-serif;letter-spacing:-.08em}.lock{margin:24px auto 10px;width:46px;height:38px;border:2px solid #c8a85c;border-radius:10px;position:relative}.lock:before{content:'';position:absolute;width:20px;height:22px;border:2px solid #c8a85c;border-bottom:0;border-radius:14px 14px 0 0;left:11px;top:-23px}.lock:after{content:'';position:absolute;width:5px;height:10px;border-radius:5px;background:#c8a85c;left:19px;top:12px}h1{font-size:24px;color:#f0d58c;margin:18px 0 8px}p{color:#bcb19b;line-height:1.9;margin:0 0 25px}a{display:inline-block;padding:11px 23px;border:1px solid #c8a85c;border-radius:10px;color:#17130a;background:#d7ba70;text-decoration:none;font-weight:700}@media(max-width:480px){.card{padding:38px 22px}}</style><main class="card"><div class="code">403</div><div class="lock" aria-hidden="true"></div><h1>دسترسی مجاز نیست</h1><p>این بخش برای حساب واردشده در دسترس نیست یا نشست شما پایان یافته است.</p><a href="/login">بازگشت به ورود امن</a></main></html>`);
+  res.end(`<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#1b120e"><title>دسترسی غیرمجاز · فرزین</title><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 0,rgba(110,80,62,.35) 0,transparent 46%),#1b120e;color:#f8f2e7;font:16px Vazirmatn,Tahoma,sans-serif}.card{width:min(100%,520px);text-align:center;padding:48px 36px;border:1px solid rgba(197,168,117,.36);border-radius:24px;background:linear-gradient(145deg,#2b1d16,#1b120e);box-shadow:0 28px 100px rgba(14,9,6,.72)}.code{color:#c5a875;font:800 clamp(64px,16vw,112px)/1 sans-serif;letter-spacing:-.08em}.lock{margin:24px auto 10px;width:46px;height:38px;border:2px solid #c5a875;border-radius:10px;position:relative}.lock:before{content:'';position:absolute;width:20px;height:22px;border:2px solid #c5a875;border-bottom:0;border-radius:14px 14px 0 0;left:11px;top:-23px}.lock:after{content:'';position:absolute;width:5px;height:10px;border-radius:5px;background:#c5a875;left:19px;top:12px}h1{font-size:24px;color:#e8d8be;margin:18px 0 8px}p{color:#9f9082;line-height:1.9;margin:0 0 25px}a{display:inline-block;padding:11px 23px;border:1px solid #c5a875;border-radius:10px;color:#1b120e;background:linear-gradient(135deg,#e8d8be,#c5a875);text-decoration:none;font-weight:700}@media(max-width:480px){.card{padding:38px 22px}}</style><main class="card"><div class="code">403</div><div class="lock" aria-hidden="true"></div><h1>دسترسی مجاز نیست</h1><p>این بخش برای حساب واردشده در دسترس نیست یا نشست شما پایان یافته است.</p><a href="/login">بازگشت به ورود امن</a></main></html>`);
 }
 function redirectToLogin(req, res) {
-  const next = encodeURIComponent(req.url.startsWith('/') && !req.url.startsWith('//') ? req.url : '/');
+  let target = '/';
+  if (req.url.startsWith('/') && !req.url.startsWith('//')) {
+    try {
+      const parsed = new URL(req.url, 'http://localhost');
+      parsed.searchParams.delete('_auth');
+      if (parsed.pathname !== '/login' && parsed.pathname !== '/login/') {
+        target = parsed.pathname + parsed.search;
+      }
+    } catch {}
+  }
+  const next = encodeURIComponent(target);
   res.writeHead(303, { Location: `/login?next=${next}`, 'Cache-Control': 'no-store' });
   res.end();
 }
@@ -424,11 +535,11 @@ function sendJson(res, status, value) {
 function addBootScreen(html, showLogout) {
   const markup = '<div id="farzinBoot" class="farzin-boot" role="status" aria-live="polite"><div class="farzin-boot-inner"><img src="/farzin-logo.png" alt=""><span class="farzin-boot-label">در حال آماده‌سازی استودیو</span><span class="farzin-boot-track"><i></i></span></div></div>';
   const sessionTools = showLogout && !/id=["']farzinLogout["']/.test(html) ? '<button class="farzin-logout" id="farzinLogout" type="button">خروج امن</button>' : '';
-  const assets = '<link rel="stylesheet" href="/boot.css"><script src="/boot.js" defer></script>';
+  const assets = '<link rel="stylesheet" href="/boot.css"><script src="/boot.js"></script>';
   return html.replace(/<\/head>/i, `${assets}</head>`).replace(/<\/body>/i, `${sessionTools}${markup}</body>`);
 }
-function sendHtml(res, data, showLogout = false) {
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+function sendHtml(res, data, showLogout = false, extraHeaders = {}) {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...extraHeaders });
   res.end(addBootScreen(data.toString('utf8'), showLogout));
 }
 function readBody(req, max = 1_000_000) {
@@ -461,14 +572,20 @@ async function routeApi(req, res, pathname) {
       for (const [id, expiry] of sessions) if (expiry <= Date.now()) sessions.delete(id);
       sessions.set(nonce, exp);
       const token = signSession({ user: ADMIN_USER, exp, nonce });
+      const handoff = createHandoffCode(token);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Set-Cookie': sessionCookieHeader(req, token) });
-      return res.end(JSON.stringify({ ok: true, username: ADMIN_USER }));
+      return res.end(JSON.stringify({ ok: true, username: ADMIN_USER, token, handoff }));
     } catch (error) { return sendJson(res, 400, { error: error.message || 'ورود انجام نشد.' }); }
   }
   if (pathname === '/api/session' && req.method === 'GET') return sendJson(res, 200, { authenticated: hasValidSession(req) });
+  if (isCrossSiteCookieMutation(req)) return sendJson(res, 403, { error: 'درخواست نامعتبر است.' });
+  if (pathname === '/api/handoff' && req.method === 'POST') {
+    const token = extractRequestToken(req);
+    if (!verifySessionToken(token)) return sendJson(res, 401, { error: 'ورود به سامانه لازم است.', login: '/login' });
+    return sendJson(res, 200, { handoff: createHandoffCode(token) });
+  }
   if (pathname === '/api/logout' && req.method === 'POST') {
-    const cookies = Object.fromEntries(String(req.headers.cookie || '').split(';').map(part => { const index = part.indexOf('='); return index < 0 ? ['', ''] : [part.slice(0, index).trim(), part.slice(index + 1).trim()]; }));
-    const [encoded] = String(cookies[sessionCookie] || '').split('.');
+    const [encoded] = extractRequestToken(req).split('.');
     try { if (encoded) sessions.delete(JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')).nonce); } catch {}
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Set-Cookie': sessionCookieHeader(req, '', true) });
     return res.end(JSON.stringify({ ok: true }));
@@ -571,7 +688,8 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/login' || url.pathname === '/login/') {
     if (hasValidSession(req)) {
       const next = url.searchParams.get('next') || '/';
-      const destination = next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/';
+      let destination = next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/';
+      if (destination === '/login' || destination.startsWith('/login?') || destination.startsWith('/login/')) destination = '/';
       res.writeHead(303, { Location: destination, 'Cache-Control': 'no-store' });
       return res.end();
     }
@@ -581,15 +699,23 @@ const server = http.createServer(async (req, res) => {
     });
   }
   if (url.pathname === '/403' || url.pathname === '/403/') return sendForbidden(res);
-  if (!hasValidSession(req) && !(url.pathname === '/api/health' && req.method === 'GET') && !['/login.css', '/login.js', '/boot.css', '/boot.js', '/farzin-logo.png', '/manifest.webmanifest', '/app-icon.svg', '/service-worker.js', '/pwa.js'].includes(url.pathname)) {
+  let handoffToken = null;
+  if (!hasValidSession(req) && req.method === 'GET' && url.searchParams.has('_auth')) {
+    handoffToken = consumeHandoffCode(url.searchParams.get('_auth'));
+  }
+  const authenticated = hasValidSession(req) || Boolean(handoffToken);
+  const publicStaticExts = ['.css', '.js', '.png', '.svg', '.ico', '.webmanifest'];
+  const isPublicStatic = req.method === 'GET' && publicStaticExts.includes(path.extname(url.pathname));
+  if (!authenticated && !(url.pathname === '/api/health' && req.method === 'GET') && !isPublicStatic) {
     if (url.pathname.startsWith('/api/')) return sendJson(res, 401, { error: 'ورود به سامانه لازم است.', login: '/login' });
     return redirectToLogin(req, res);
   }
+  const extraHeaders = handoffToken ? { 'Set-Cookie': sessionCookieHeader(req, handoffToken) } : {};
   if ((url.pathname === '/board' || url.pathname === '/board/' || url.pathname === '/board-config' || url.pathname === '/board-config/' || url.pathname === '/tgju-widget' || url.pathname === '/tgju-widget/') && req.method === 'GET') {
     const page = url.pathname.startsWith('/board-config') ? 'board-config.html' : url.pathname.startsWith('/tgju-widget') ? 'tgju-widget.html' : 'board.html';
     fs.readFile(path.join(ROOT, page), (error, data) => {
       if (error) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Board page not found'); }
-      sendHtml(res, data, true);
+      sendHtml(res, data, true, extraHeaders);
     });
     return;
   }
@@ -602,7 +728,7 @@ const server = http.createServer(async (req, res) => {
   }
   fs.readFile(file, (error, data) => {
     if (error) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Not found'); }
-    if (path.extname(file) === '.html') return sendHtml(res, data, true);
+    if (path.extname(file) === '.html') return sendHtml(res, data, true, extraHeaders);
     res.writeHead(200, {
       'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
       'Cache-Control': 'no-store'
@@ -618,7 +744,7 @@ server.listen(PORT, HOST, () => {
   console.log('Live market source: TGJU (no API key required). First quote is fetched in the background.');
   console.log(`Secure login enabled for user "${ADMIN_USER}"; sessions expire after ${SESSION_TTL_SECONDS / 3600} hours.`);
   if (!process.env.ADMIN_PASSWORD) console.log(`Generated one-time admin password: ${ADMIN_PASSWORD}`);
-  console.log(`TGJU polling: every ${TGJU_POLL_MS / 1000}s; failed source retries: every ${TGJU_ERROR_RETRY_MS / 1000}s.`);
+  console.log(`TGJU polling: every ${TGJU_POLL_MS / 1000}s; reconnect interval: ${TGJU_ERROR_RETRY_MS / 1000}s.`);
   setTimeout(() => { void refreshTgjuSnapshot(true); }, 250).unref();
   setInterval(() => {
     const retryWindow = tgjuSnapshot.status === 'offline' || tgjuSnapshot.status === 'connecting' ? TGJU_ERROR_RETRY_MS : TGJU_POLL_MS;

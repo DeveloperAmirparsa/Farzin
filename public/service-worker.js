@@ -1,21 +1,25 @@
 'use strict';
 
-const CACHE_NAME = 'farzin-static-v1';
+const CACHE_NAME = 'farzin-static-v10';
 const STATIC_ASSETS = [
   '/app-icon.svg',
   '/asset-catalog.js',
   '/asset-icons.js',
   '/boot.css',
   '/boot.js',
+  '/board.css',
   '/board.js',
+  '/board-config.css',
   '/board-config.js',
+  '/design-system.css',
   '/app.js',
   '/manifest.webmanifest',
   '/login.css',
   '/login.js',
   '/pwa.js',
   '/quote-pricing.js',
-  '/style.css'
+  '/style.css',
+  '/ui-components.js'
 ];
 const APP_SHELL = ['/board', '/index.html'];
 
@@ -45,17 +49,22 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   if (url.pathname.startsWith('/api/')) return;
 
-  const network = fetch(request).then(async response => {
-    const type = response.headers.get('Content-Type') || '';
-    if (response.ok && /javascript|text\/css|image\/|application\/manifest\+json/.test(type)) {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.put(request, response.clone());
-    }
-    return response;
-  });
-  event.waitUntil(network.then(() => undefined, () => undefined));
+  const isStaticAsset = /\.(css|js|png|svg|ico|webmanifest)$/i.test(url.pathname);
+  if (!isStaticAsset) return;
+
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
-    return await cache.match(request) || network;
+    try {
+      const response = await fetch(request);
+      const type = response.headers.get('Content-Type') || '';
+      if (response.ok && /javascript|text\/css|image\/|application\/manifest\+json/.test(type)) {
+        await cache.put(request, response.clone());
+      }
+      return response;
+    } catch (error) {
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      throw error;
+    }
   })());
 });

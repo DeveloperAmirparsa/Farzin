@@ -1,46 +1,192 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<meta name="theme-color" content="#090908"><title>نمایشگر رسمی TGJU · فرزین</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1b120e">
+<title>نمایشگر رسمی TGJU · گالری فرزین</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/design-system.css">
 <style>
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#090908;color:#f4ecd8;font-family:Vazirmatn,Tahoma,sans-serif}
-body{padding:24px;background:radial-gradient(ellipse at 50% 0,#2b2416 0,#0a0a09 55%,#050505 100%)}
-header{max-width:1700px;margin:0 auto 22px;display:flex;align-items:center;justify-content:space-between;gap:20px;border:1px solid #a98a4c66;border-radius:18px;padding:14px 22px;background:#100f0cdd;box-shadow:0 12px 40px #0008}
-.brand{display:flex;align-items:center;gap:15px}.brand img{width:66px;height:66px;object-fit:contain;filter:drop-shadow(0 4px 12px #c49d3b44)}.brand strong{display:block;color:#e1c16c;font-size:22px}.brand small{color:#a99a7a;font-size:12px}.meta{text-align:left;color:#b9ac8c;font-size:12px}.meta b{display:block;color:#d9bd79;font-size:18px;font-variant-numeric:tabular-nums}
-main{max-width:1700px;margin:auto}.panel{border:1px solid #9c814b88;border-radius:18px;padding:18px;background:#0e0e0c;box-shadow:0 18px 55px #0009}.panel h1{font-size:18px;color:#e0c16e;margin:0 0 14px}.widget-mount{display:grid;gap:16px}.widget-mount .tgju-preview-slot{background:#12110d;border:1px solid #826b3b77;border-radius:14px;padding:12px;min-height:160px;overflow:auto}.widget-mount>p{color:#c5ad72;font-size:13px;margin:0;padding:8px}.empty{display:none;text-align:center;padding:60px 20px;color:#c7b58e;border:1px dashed #927741;border-radius:14px;line-height:2}.empty a{color:#e4c574}.foot{max-width:1700px;margin:14px auto;color:#8f846b;font-size:11px;display:flex;justify-content:space-between;gap:12px}
-@media(max-width:700px){body{padding:8px}header{padding:10px}.brand img{width:46px;height:46px}.brand strong{font-size:16px}.meta{font-size:10px}.panel{padding:10px}}
+  .fz-widget-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--fz-space-5);
+  }
+  .fz-widget-clock {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+  }
+  .fz-widget-clock span {
+    font-size: 12px;
+    color: var(--fz-ink-muted);
+  }
+  .fz-widget-clock b {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--fz-accent-strong);
+  }
+  .widget-mount {
+    display: grid;
+    gap: var(--fz-space-4);
+  }
+  .widget-mount .tgju-preview-slot {
+    background-color: rgba(248, 242, 231, 0.96);
+    color: #1B120E;
+    border: 1px solid var(--fz-accent-line);
+    border-radius: var(--fz-radius-md);
+    padding: var(--fz-space-4);
+    min-height: 160px;
+    overflow: auto;
+    box-shadow: var(--fz-shadow-sm);
+  }
+  .widget-mount > p {
+    margin: 0;
+    color: var(--fz-ink-secondary);
+    font-size: 13.5px;
+  }
+  .fz-widget-empty {
+    display: none;
+    text-align: center;
+    padding: var(--fz-space-12) var(--fz-space-4);
+    color: var(--fz-ink-secondary);
+    background-color: var(--fz-glass-inset);
+    border: 1px dashed var(--fz-border-strong);
+    border-radius: var(--fz-radius-md);
+    line-height: 2;
+    font-size: 14px;
+  }
 </style>
 </head>
 <body>
-<header><div class="brand"><img src="/farzin-logo.png" alt="لوگوی فرزین"><div><strong id="brandName">گالری طلا و سکه فرزین</strong><small id="subtitle">نمایش زنده ویجت رسمی شبکه اطلاع‌رسانی طلا و ارز</small></div></div><div class="meta"><span id="todayLabel">تاریخ امروز</span><b id="clock">--:--:--</b></div></header>
-<main><section class="panel"><h1>نمایش رسمی قیمت‌ها از TGJU</h1><div id="widgetMount" class="widget-mount"></div><div id="emptyState" class="empty">هنوز کد ویجت رسمی ثبت نشده است.<br>در پنل کانفیگ تابلو، کد خروجی را از <a href="https://www.tgju.org/widget/" target="_blank" rel="noopener noreferrer">ویجت‌ساز TGJU</a> کپی و ذخیره کن.</div></section></main>
-<div class="foot"><span>اطلاعات مستقیماً توسط ابزارک رسمی TGJU نمایش داده می‌شود.</span><a href="https://www.tgju.org/widget/" target="_blank" rel="noopener noreferrer" style="color:#d6b568">TGJU.ORG</a></div>
-<script src="/tgju-widget.js"></script><script>
-(()=>{
-  const $=id=>document.getElementById(id);
-  let activeCode='',loading=false;
-  function tick(){const now=new Date();$('clock').textContent=new Intl.DateTimeFormat('fa-IR',{timeZone:'Asia/Tehran',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(now);$('todayLabel').textContent=new Intl.DateTimeFormat('fa-IR-u-ca-persian',{timeZone:'Asia/Tehran',weekday:'long',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);}
-  async function syncConfig(){
-    if(loading)return;loading=true;
-    try{
-      const r=await fetch('/api/config',{cache:'no-store',signal:AbortSignal.timeout(5000)});
-      if(!r.ok)throw new Error('بارگذاری تنظیمات ناموفق بود.');
-      const data=await r.json(),s=data.settings||{},code=s.boardConfig?.tgjuWidgetCode||'';
-      $('brandName').textContent=s.brand||'گالری طلا و سکه فرزین';
-      $('subtitle').textContent=s.subtitle||'نمایش زنده ویجت رسمی شبکه اطلاع‌رسانی طلا و ارز';
-      if(!code.trim()){$('widgetMount').replaceChildren();$('emptyState').style.display='block';activeCode='';return;}
-      $('emptyState').style.display='none';
-      if(code!==activeCode){await window.FarzinTGJUWidget.mount($('widgetMount'),code,{eager:true,height:690});activeCode=code;}
-    }catch(error){
-      $('emptyState').style.display='block';$('emptyState').textContent=error.message||'خطا در بارگذاری ویجت.';
-      activeCode='';
-    }finally{loading=false;}
+<a class="fz-skip-link" href="#mainContent">پرش به محتوای اصلی</a>
+
+<header class="fz-topbar">
+  <div class="fz-topbar-inner">
+    <a class="fz-brand" href="/">
+      <span class="fz-brand-mark"><img src="/farzin-logo.png" alt="گالری فرزین"></span>
+      <span class="fz-brand-name" id="brandName">گالری فرزین</span>
+    </a>
+
+    <nav class="fz-nav" aria-label="ناوبری اصلی">
+      <a class="fz-nav-link" href="/">استودیو استوری</a>
+      <a class="fz-nav-link" href="/board-config">کانفیگ تابلو</a>
+      <a class="fz-nav-link" href="/board" target="_blank" rel="noreferrer">تابلو زنده</a>
+      <a class="fz-nav-link" href="/tgju-widget" aria-current="page">ویجت TGJU</a>
+    </nav>
+
+    <div class="fz-topbar-actions">
+      <a class="fz-btn fz-btn-secondary fz-btn-sm" href="/board-config">تنظیم کد ویجت</a>
+      <button class="fz-btn fz-btn-ghost fz-btn-sm" id="farzinLogout" type="button">خروج</button>
+      <button class="fz-icon-btn fz-menu-toggle" id="fzMenuToggle" type="button" aria-label="منو" aria-expanded="false" aria-controls="fzMobileDrawer">☰</button>
+    </div>
+  </div>
+  <div class="fz-mobile-drawer" id="fzMobileDrawer">
+    <nav class="fz-mobile-nav" aria-label="ناوبری موبایل">
+      <a class="fz-nav-link" href="/">استودیو استوری</a>
+      <a class="fz-nav-link" href="/board-config">کانفیگ تابلو</a>
+      <a class="fz-nav-link" href="/board" target="_blank" rel="noreferrer">تابلو زنده</a>
+      <a class="fz-nav-link" href="/tgju-widget" aria-current="page">ویجت TGJU</a>
+    </nav>
+  </div>
+</header>
+
+<main class="fz-shell" id="mainContent">
+  <div class="fz-page-head">
+    <div>
+      <span class="fz-kicker">OFFICIAL TGJU FEED</span>
+      <h1 class="fz-page-title">نمایشگر رسمی شبکه اطلاع‌رسانی طلا و ارز</h1>
+      <p class="fz-page-subtitle" id="subtitle">نمایش زنده ویجت رسمی ثبت‌شده در تنظیمات تابلو</p>
+    </div>
+    <div class="fz-widget-meta">
+      <div class="fz-widget-clock">
+        <span id="todayLabel">تاریخ امروز</span>
+        <b class="fz-tabular" id="clock">--:--:--</b>
+      </div>
+    </div>
+  </div>
+
+  <section class="fz-card">
+    <div class="fz-card-header">
+      <div>
+        <h2 class="fz-card-title">ابزارک زنده قیمت‌ها</h2>
+        <p class="fz-card-desc">به‌صورت مستقیم توسط اسکریپت رسمی TGJU بارگذاری می‌شود</p>
+      </div>
+      <a class="fz-btn fz-btn-secondary fz-btn-sm" href="https://www.tgju.org/widget/" target="_blank" rel="noopener noreferrer">ویجت‌ساز TGJU ↗</a>
+    </div>
+    <div class="fz-card-body">
+      <div id="widgetMount" class="widget-mount"></div>
+      <div id="emptyState" class="fz-widget-empty">
+        هنوز کد ویجت رسمی ثبت نشده است.<br>
+        در بخش <a href="/board-config">کانفیگ تابلو</a>، کد خروجی را از ویجت‌ساز TGJU کپی و ذخیره کنید.
+      </div>
+    </div>
+  </section>
+
+  <footer class="fz-footer">
+    <span>نمایشگر رسمی TGJU · گالری طلا و سکه فرزین</span>
+    <a href="https://www.tgju.org/widget/" target="_blank" rel="noopener noreferrer">TGJU.ORG ↗</a>
+  </footer>
+</main>
+
+<script src="/ui-components.js" defer></script>
+<script src="/tgju-widget.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  let activeCode = '';
+  let loading = false;
+
+  function tick() {
+    const now = new Date();
+    $('clock').textContent = new Intl.DateTimeFormat('fa-IR', {
+      timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    }).format(now);
+    $('todayLabel').textContent = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+      timeZone: 'Asia/Tehran', weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(now);
   }
-  tick();setInterval(tick,1000);syncConfig();setInterval(syncConfig,30000);
-  window.addEventListener('online',syncConfig);document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncConfig();});
+
+  async function syncConfig() {
+    if (loading) return;
+    loading = true;
+    try {
+      const r = await fetch('/api/config', { cache: 'no-store', signal: AbortSignal.timeout(5000) });
+      if (!r.ok) throw new Error('بارگذاری تنظیمات ناموفق بود.');
+      const data = await r.json();
+      const s = data.settings || {};
+      const code = s.boardConfig?.tgjuWidgetCode || '';
+      $('brandName').textContent = s.brand || 'گالری فرزین';
+      $('subtitle').textContent = s.subtitle || 'نمایش زنده ویجت رسمی شبکه اطلاع‌رسانی طلا و ارز';
+      if (!code.trim()) {
+        $('widgetMount').replaceChildren();
+        $('emptyState').style.display = 'block';
+        activeCode = '';
+        return;
+      }
+      $('emptyState').style.display = 'none';
+      if (code !== activeCode) {
+        await window.FarzinTGJUWidget.mount($('widgetMount'), code, { eager: true, height: 690 });
+        activeCode = code;
+      }
+    } catch (error) {
+      $('emptyState').style.display = 'block';
+      $('emptyState').textContent = error.message || 'خطا در بارگذاری ویجت.';
+      activeCode = '';
+    } finally {
+      loading = false;
+    }
+  }
+
+  tick();
+  setInterval(tick, 1000);
+  syncConfig();
+  setInterval(syncConfig, 30000);
+  window.addEventListener('online', syncConfig);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncConfig(); });
 })();
 </script>
-</body></html>
+</body>
+</html>

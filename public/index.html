@@ -3,130 +3,302 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0b0b0a">
+<meta name="theme-color" content="#1b120e">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="/farzin-logo.png">
-<title>استودیو استوری فرزین</title>
+<title>استودیو استوری فرزین · میز کار بازار</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/design-system.css">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
-<main class="app-shell">
-  <header class="app-header">
-    <div class="brand-lockup">
-      <div class="brand-mark"><img id="adminLogo" src="/farzin-logo.png" alt="لوگوی فرزین"></div>
-      <div><div class="eyebrow">FARZIN COIN · STORY STUDIO</div><h1>استودیو استوری فرزین</h1><p>ساخت و انتشار تصویر قیمت طلا و سکه</p></div>
-    </div>
-    <div class="header-status"><span class="status-dot" id="statusDot"></span><span id="connectionLabel">آماده اتصال به بازار</span><button class="btn btn-outline board-launch" type="button" data-pwa-install>نصب وب‌اپ</button><a class="btn btn-outline board-launch" href="/board-config" target="_blank" rel="noreferrer">⚙ کانفیگ تابلو</a><a class="btn btn-primary board-launch" href="/board" target="_blank" rel="noreferrer">▣ تابلو ۱۹۲۰ × ۱۰۸۰</a></div>
-  </header>
+<a class="fz-skip-link" href="#mainContent">پرش به محتوای اصلی</a>
 
-  <section class="market-strip">
-    <div><span class="mini-label">وضعیت اتصال</span><strong id="marketStatus">در انتظار تنظیم کلید API</strong></div>
-    <div><span class="mini-label">آخرین زمان ثبت‌شده توسط منبع</span><strong id="lastUpdateText">هنوز نرخی دریافت نشده</strong></div>
-    <div class="market-actions"><button class="btn btn-quiet" id="refreshNow">دریافت نرخ همین حالا</button><label class="live-toggle"><input type="checkbox" id="liveEnabled" checked><span class="toggle-track"></span><span>استریم زنده</span></label></div>
+<header class="fz-topbar">
+  <div class="fz-topbar-inner">
+    <a class="fz-brand" href="/">
+      <span class="fz-brand-mark"><img id="adminLogo" src="/farzin-logo.png" alt="لوگوی فرزین"></span>
+      <span class="fz-brand-name">گالری فرزین</span>
+    </a>
+
+    <nav class="fz-nav" aria-label="ناوبری اصلی">
+      <a class="fz-nav-link" href="/" aria-current="page">استودیو استوری</a>
+      <a class="fz-nav-link" href="/board-config">کانفیگ تابلو</a>
+      <a class="fz-nav-link" href="/board" target="_blank" rel="noreferrer">تابلو زنده</a>
+      <a class="fz-nav-link" href="/tgju-widget">ویجت TGJU</a>
+    </nav>
+
+    <div class="fz-topbar-actions">
+      <button class="fz-btn fz-btn-secondary fz-btn-sm" type="button" data-pwa-install>نصب وب‌اپ</button>
+      <button class="fz-btn fz-btn-primary fz-btn-sm" id="exportPng" type="button">خروجی PNG</button>
+      <button class="fz-btn fz-btn-ghost fz-btn-sm" id="farzinLogout" type="button">خروج</button>
+      <button class="fz-icon-btn fz-menu-toggle" id="fzMenuToggle" type="button" aria-label="منو" aria-expanded="false" aria-controls="fzMobileDrawer">☰</button>
+    </div>
+  </div>
+  <div class="fz-mobile-drawer" id="fzMobileDrawer">
+    <nav class="fz-mobile-nav" aria-label="ناوبری موبایل">
+      <a class="fz-nav-link" href="/" aria-current="page">استودیو استوری</a>
+      <a class="fz-nav-link" href="/board-config">کانفیگ تابلو</a>
+      <a class="fz-nav-link" href="/board" target="_blank" rel="noreferrer">تابلو زنده</a>
+      <a class="fz-nav-link" href="/tgju-widget">ویجت TGJU</a>
+    </nav>
+  </div>
+</header>
+
+<main class="fz-shell" id="mainContent">
+  <div class="fz-page-head">
+    <div>
+      <span class="fz-kicker">FARZIN STORY STUDIO</span>
+      <h1 class="fz-page-title">استودیو استوری و مدیریت نرخ طلا و سکه</h1>
+      <p class="fz-page-subtitle">تنظیم نرخ‌های لحظه‌ای بازار، هویت برند و خروجی تصویر استوری با فرمت ۹:۱۶</p>
+    </div>
+    <a class="fz-btn fz-btn-secondary" href="/board" target="_blank" rel="noreferrer">باز کردن تابلو ۱۹۲۰ × ۱۰۸۰ ↗</a>
+  </div>
+
+  <section class="fz-stat-strip" aria-label="وضعیت لحظه‌ای بازار">
+    <div class="fz-stat-cell">
+      <span class="fz-stat-label">وضعیت اتصال بازار</span>
+      <span class="fz-stat-value">
+        <span class="fz-status-dot" id="statusDot" aria-hidden="true"></span>
+        <span id="connectionLabel">در حال بررسی اتصال...</span>
+      </span>
+      <span class="fz-stat-label" id="marketStatus">در انتظار دریافت داده از TGJU</span>
+    </div>
+
+    <div class="fz-stat-cell">
+      <span class="fz-stat-label">آخرین زمان ثبت‌شده منبع</span>
+      <span class="fz-stat-value fz-tabular" id="lastUpdateText">هنوز نرخی دریافت نشده</span>
+      <span class="fz-stat-label">چرخه دریافت خودکار هر ۳۰ ثانیه</span>
+    </div>
+
+    <div class="fz-stat-actions">
+      <label class="fz-switch">
+        <input type="checkbox" id="liveEnabled" checked>
+        <span class="fz-switch-track" aria-hidden="true"></span>
+        <span>استریم زنده</span>
+      </label>
+      <button class="fz-btn fz-btn-secondary fz-btn-sm" id="refreshNow" type="button">دریافت نرخ همین حالا</button>
+    </div>
   </section>
 
-  <div class="workspace">
-    <section class="editor-column">
-      <div class="section-heading"><div><span class="eyebrow">CONTROL ROOM</span><h2>مدیریت کامل استوری</h2></div><span class="edit-hint">تغییرات را ذخیره کن تا روی همین سیستم باقی بمانند</span></div>
+  <div class="fz-tabs" role="tablist" aria-label="فیلتر بخش‌های استودیو" data-fz-tabs>
+    <button type="button" class="fz-tab is-active" role="tab" aria-selected="true" data-tab-target="all">نمای کامل</button>
+    <button type="button" class="fz-tab" role="tab" aria-selected="false" data-tab-target="market">جدول نرخ لحظه‌ای</button>
+    <button type="button" class="fz-tab" role="tab" aria-selected="false" data-tab-target="identity">هویت برند و تماس</button>
+    <button type="button" class="fz-tab" role="tab" aria-selected="false" data-tab-target="rates">بخش‌ها و نرخ‌ها</button>
+    <button type="button" class="fz-tab" role="tab" aria-selected="false" data-tab-target="appearance">ظاهر و کیفیت خروجی</button>
+    <button type="button" class="fz-tab" role="tab" aria-selected="false" data-tab-target="backup">پشتیبان‌گیری</button>
+  </div>
 
-      <details class="editor-card" open>
-        <summary><span class="summary-icon">01</span><span><b>هویت برند و اطلاعات تماس</b><small>تمام متن‌ها و اطلاعات قابل ویرایش‌اند</small></span><span class="chevron">⌄</span></summary>
-        <div class="card-body">
-          <div class="field-grid">
-            <label class="field"><span>نام اصلی برند</span><input data-config="brand" type="text" maxlength="60"></label>
-            <label class="field"><span>زیرعنوان</span><input data-config="subtitle" type="text" maxlength="90"></label>
-            <div class="field full custom-area-field">
-              <div class="custom-area-heading"><span>کادرهای اطلاعات پایین تصویر</span><button class="btn btn-outline btn-small" id="addContactCard">＋ افزودن کادر اطلاعات</button></div>
+  <div class="fz-workspace">
+    <section class="fz-editor-col" aria-label="تنظیمات استودیو">
+
+      <section class="fz-card" data-tab-panel="market" aria-labelledby="marketTableHeading">
+        <div class="fz-card-header">
+          <div>
+            <h2 class="fz-card-title" id="marketTableHeading">نمای کلی نرخ‌های لحظه‌ای بازار</h2>
+            <p class="fz-card-desc">نرخ‌های خام دریافت‌شده از فید TGJU (نرخ‌های داخلی به تومان)</p>
+          </div>
+          <input class="fz-input fz-search-input" id="marketSearch" type="search" placeholder="جستجوی نماد یا دارایی..." aria-label="جستجو در جدول نرخ‌های بازار">
+        </div>
+        <div class="fz-card-body">
+          <div class="fz-market-breadth" id="marketBreadthStrip" aria-live="polite"></div>
+          <div class="fz-table-wrap">
+            <table class="fz-table">
+              <thead>
+                <tr>
+                  <th scope="col">دارایی</th>
+                  <th scope="col">دسته</th>
+                  <th scope="col" class="is-num">نرخ فعلی</th>
+                  <th scope="col">واحد</th>
+                  <th scope="col">بازه روز (کف / سقف)</th>
+                  <th scope="col" class="is-num">تغییر ۲۴ ساعته</th>
+                </tr>
+              </thead>
+              <tbody id="marketTableBody">
+                <tr><td colspan="6" class="fz-empty-state">در حال دریافت نرخ‌های زنده از TGJU...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <details class="fz-card" data-tab-panel="identity">
+        <summary>
+          <span class="fz-summary-index">۰۱</span>
+          <span class="fz-summary-text">
+            <b>هویت برند و اطلاعات تماس</b>
+            <small>نام گالری، زیرعنوان، کادرهای تماس و متن‌های فوتر استوری</small>
+          </span>
+          <span class="fz-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="fz-card-body">
+          <div class="fz-field-grid">
+            <label class="fz-field"><span>نام اصلی برند</span><input data-config="brand" type="text" maxlength="60"></label>
+            <label class="fz-field"><span>زیرعنوان</span><input data-config="subtitle" type="text" maxlength="90"></label>
+            <div class="fz-field full custom-area-field">
+              <div class="custom-area-heading">
+                <span>کادرهای اطلاعات پایین تصویر</span>
+                <button class="fz-btn fz-btn-secondary fz-btn-sm" id="addContactCard" type="button">＋ افزودن کادر اطلاعات</button>
+              </div>
               <p class="custom-area-help">هر اطلاعات در کادر مستقل نمایش داده می‌شود. عنوان، متن، ترتیب و نمایش هر کادر قابل تنظیم است.</p>
               <div id="contactCardsEditor" class="custom-list-editor"></div>
             </div>
-            <div class="field full custom-area-field">
-              <div class="custom-area-heading"><span>متن‌های فوتر</span><button class="btn btn-outline btn-small" id="addFooterLine">＋ افزودن متن فوتر</button></div>
-              <p class="custom-area-help">می‌توانی چند خط فوتر اضافه کنی، جابه‌جا کنی یا هرکدام را جداگانه مخفی کنی.</p>
+            <div class="fz-field full custom-area-field">
+              <div class="custom-area-heading">
+                <span>متن‌های فوتر</span>
+                <button class="fz-btn fz-btn-secondary fz-btn-sm" id="addFooterLine" type="button">＋ افزودن متن فوتر</button>
+              </div>
+              <p class="custom-area-help">می‌توانید چند خط فوتر اضافه کنید، جابه‌جا کنید یا هرکدام را جداگانه مخفی کنید.</p>
               <div id="footerLinesEditor" class="custom-list-editor"></div>
             </div>
           </div>
-          <div class="field-row toggles-row">
-            <label class="check-field"><input data-config="showDate" type="checkbox"><span>نمایش تاریخ شمسی</span></label>
-            <label class="check-field"><input data-config="showUpdate" type="checkbox"><span>نمایش زمان آخرین نرخ</span></label>
-            <label class="check-field"><input data-config="showLogo" type="checkbox"><span>نمایش لوگوی بالای استوری</span></label>
+          <div class="toggles-row">
+            <label class="fz-check"><input data-config="showDate" type="checkbox"><span>نمایش تاریخ شمسی</span></label>
+            <label class="fz-check"><input data-config="showUpdate" type="checkbox"><span>نمایش زمان آخرین نرخ</span></label>
+            <label class="fz-check"><input data-config="showLogo" type="checkbox"><span>نمایش لوگوی بالای استوری</span></label>
           </div>
           <div class="logo-upload-row">
             <div class="logo-current"><img id="logoThumb" src="/farzin-logo.png" alt="لوگو"><span>لوگوی PNG شفاف با وضوح بالا</span></div>
-            <label class="btn btn-outline upload-btn">جایگزینی لوگو<input id="logoUpload" type="file" accept="image/png"></label>
+            <label class="fz-btn fz-btn-secondary fz-btn-sm upload-btn">جایگزینی لوگو<input id="logoUpload" type="file" accept="image/png"></label>
           </div>
         </div>
       </details>
 
-      <details class="editor-card" open>
-        <summary><span class="summary-icon">02</span><span><b>مدیریت بخش‌ها و نرخ‌ها</b><small>افزودن، حذف، جابه‌جایی و تغییر منبع هر قیمت</small></span><span class="chevron">⌄</span></summary>
-        <div class="card-body">
-          <div class="rates-toolbar"><p>هر ردیف می‌تواند نرخ زنده یا مقدار دستی داشته باشد.</p><button class="btn btn-outline btn-small" id="addSection">＋ افزودن بخش جدید</button></div>
+      <details class="fz-card" data-tab-panel="rates">
+        <summary>
+          <span class="fz-summary-index">۰۲</span>
+          <span class="fz-summary-text">
+            <b>مدیریت بخش‌ها و نرخ‌ها</b>
+            <small>افزودن، حذف، جابه‌جایی و تنظیم حاشیه خرید و فروش هر قیمت</small>
+          </span>
+          <span class="fz-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="fz-card-body">
+          <div class="rates-toolbar">
+            <p>هر ردیف می‌تواند نرخ زنده TGJU یا مقدار دستی داشته باشد.</p>
+            <button class="fz-btn fz-btn-secondary fz-btn-sm" id="addSection" type="button">＋ افزودن بخش جدید</button>
+          </div>
           <div id="sectionsEditor" class="sections-editor"></div>
-          <div class="source-note"><b>نمادهای در دسترس API:</b> طلای ۱۸، ۲۱ و ۲۴ عیار، مظنه، سکه تمام، نیم و ربع، دلار و اونس. اقلام دیگر را می‌توان دستی وارد کرد.</div>
+          <div class="source-note"><b>نمادهای در دسترس فید:</b> طلای ۱۸، ۲۱ و ۲۴ عیار، مظنه، سکه تمام، نیم و ربع، دلار، یورو، درهم، نقره، نفت و رمزارزها. اقلام دیگر را می‌توان به‌صورت دستی وارد کرد.</div>
         </div>
       </details>
 
-      <details class="editor-card" open>
-        <summary><span class="summary-icon">03</span><span><b>ظاهر و کیفیت خروجی</b><small>رنگ‌ها، واترمارک، کادر و رزولوشن</small></span><span class="chevron">⌄</span></summary>
-        <div class="card-body">
+      <details class="fz-card" data-tab-panel="appearance">
+        <summary>
+          <span class="fz-summary-index">۰۳</span>
+          <span class="fz-summary-text">
+            <b>ظاهر و کیفیت خروجی استوری</b>
+            <small>پالت رنگ استوری، شفافیت واترمارک، کادر و رزولوشن خروجی</small>
+          </span>
+          <span class="fz-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="fz-card-body">
           <div class="color-grid">
             <label class="color-field"><span>رنگ پس‌زمینه</span><input data-config="bgColor" type="color"></label>
-            <label class="color-field"><span>طلایی برند</span><input data-config="goldColor" type="color"></label>
+            <label class="color-field"><span>رنگ اصلی (برند)</span><input data-config="goldColor" type="color"></label>
             <label class="color-field"><span>رنگ متن اصلی</span><input data-config="textColor" type="color"></label>
             <label class="color-field"><span>رنگ متن فرعی</span><input data-config="mutedColor" type="color"></label>
           </div>
-          <div class="field-grid design-grid">
-            <label class="field"><span>شفافیت واترمارک لوگو <b id="watermarkValue">۸٪</b></span><input data-config="watermarkOpacity" type="range" min="0" max="30" step="1"></label>
-            <label class="field"><span>اندازه خروجی</span><select data-config="exportScale"><option value="1">استاندارد 1080 × 1920</option><option value="2">دو برابر 2160 × 3840</option><option value="3">سه برابر 3240 × 5760</option></select></label>
+          <div class="fz-field-grid design-grid">
+            <label class="fz-field"><span>شفافیت واترمارک لوگو <b id="watermarkValue">۸٪</b></span><input data-config="watermarkOpacity" type="range" min="0" max="30" step="1"></label>
+            <label class="fz-field"><span>اندازه خروجی</span><select data-config="exportScale"><option value="1">استاندارد 1080 × 1920</option><option value="2">دو برابر 2160 × 3840</option><option value="3">سه برابر 3240 × 5760</option></select></label>
           </div>
-          <div class="field-row toggles-row">
-            <label class="check-field"><input data-config="showFrame" type="checkbox"><span>کادر ظریف طلایی</span></label>
-            <span class="fine-print source-credit-note">اعتبار منبع قیمت به‌صورت ثابت در خروجی درج می‌شود.</span>
+          <div class="toggles-row">
+            <label class="fz-check"><input data-config="showFrame" type="checkbox"><span>کادر ظریف برند</span></label>
+            <label class="fz-check"><input data-story="showTrends" type="checkbox" checked><span>نشانگر روند ۲۴ ساعته</span></label>
+            <span class="fine-print">اعتبار منبع قیمت به‌صورت ثابت در خروجی درج می‌شود.</span>
           </div>
         </div>
       </details>
 
-      <details class="editor-card" open>
-        <summary><span class="summary-icon">04</span><span><b>اتصال خودکار نرخ لحظه‌ای</b><small>دریافت مستقیم قیمت‌ها از TGJU بدون کلید API</small></span><span class="chevron">⌄</span></summary>
-        <div class="card-body">
-          <div class="api-intro"><div class="api-pulse"></div><div><b>اتصال مستقیم TGJU</b><p>همه نرخ‌های طلا، سکه، ارز، نقره و نفت از فید مورد استفاده سایت TGJU دریافت می‌شوند. چرخه بروزرسانی تابلو ۳۰ ثانیه است و نیازی به کلید API نیست.</p></div></div>
+      <details class="fz-card" data-tab-panel="appearance">
+        <summary>
+          <span class="fz-summary-index">۰۴</span>
+          <span class="fz-summary-text">
+            <b>اتصال خودکار نرخ لحظه‌ای TGJU</b>
+            <small>دریافت مستقیم قیمت‌ها بدون نیاز به کلید API</small>
+          </span>
+          <span class="fz-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="fz-card-body">
+          <div class="api-intro">
+            <b>اتصال مستقیم شبکه اطلاع‌رسانی طلا و ارز</b>
+            <p>تمام نرخ‌های طلا، سکه، ارز، نقره و نفت از فید TGJU دریافت می‌شوند. چرخه بروزرسانی ۳۰ ثانیه است و در صورت قطعی موقت، آخرین نرخ معتبر حفظ می‌شود.</p>
+          </div>
           <input id="apiKey" type="hidden" value="">
-          <div class="api-buttons"><button class="btn btn-primary" id="saveAll">ذخیره تنظیمات</button><a class="api-link" href="https://www.tgju.org/" target="_blank" rel="noreferrer">باز کردن منبع TGJU ↗</a></div>
+          <div class="api-buttons">
+            <button class="fz-btn fz-btn-primary" id="saveAll" type="button">ذخیره تنظیمات</button>
+            <a class="api-link" href="https://www.tgju.org/" target="_blank" rel="noreferrer">باز کردن منبع TGJU ↗</a>
+          </div>
           <div class="key-state" id="keyState">منبع نرخ‌ها: TGJU · بدون نیاز به کلید API</div>
-          <p class="fine-print">تابلو برای جلوگیری از معطل‌ماندن صفحه، پاسخ سرور محلی را فوراً نمایش می‌دهد و دریافت نرخ از TGJU در پس‌زمینه انجام می‌شود. در صورت قطعی منبع، آخرین قیمت معتبر با وضعیت داده قدیمی حفظ خواهد شد.</p>
         </div>
       </details>
 
-      <details class="editor-card">
-        <summary><span class="summary-icon">05</span><span><b>پشتیبان‌گیری و بازیابی</b><small>انتقال تنظیمات یا بازگردانی طرح پیش‌فرض</small></span><span class="chevron">⌄</span></summary>
-        <div class="card-body backup-row">
-          <button class="btn btn-outline" id="exportConfig">خروجی تنظیمات JSON</button>
-          <label class="btn btn-outline upload-btn">بارگذاری تنظیمات<input id="importConfig" type="file" accept="application/json"></label>
-          <button class="btn btn-danger" id="resetConfig">بازگردانی پیش‌فرض</button>
+      <details class="fz-card" data-tab-panel="backup">
+        <summary>
+          <span class="fz-summary-index">۰۵</span>
+          <span class="fz-summary-text">
+            <b>پشتیبان‌گیری و بازیابی</b>
+            <small>خروجی فایل JSON تنظیمات یا بازگردانی طرح پیش‌فرض</small>
+          </span>
+          <span class="fz-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="fz-card-body backup-row">
+          <button class="fz-btn fz-btn-secondary" id="exportConfig" type="button">خروجی تنظیمات JSON</button>
+          <label class="fz-btn fz-btn-secondary upload-btn">بارگذاری تنظیمات<input id="importConfig" type="file" accept="application/json"></label>
+          <button class="fz-btn fz-btn-danger" id="resetConfig" type="button">بازگردانی پیش‌فرض</button>
         </div>
       </details>
 
-      <div class="bottom-actions"><button class="btn btn-primary btn-export" id="exportPng">⇩ خروجی PNG باکیفیت</button><button class="btn btn-quiet" id="saveSettings">ذخیره تغییرات</button><span id="saveMessage" role="status"></span></div>
+      <div class="bottom-actions">
+        <button class="fz-btn fz-btn-accent" id="saveSettings" type="button">ذخیره تغییرات</button>
+        <span id="saveMessage" role="status"></span>
+      </div>
     </section>
 
-    <aside class="preview-column">
-      <div class="preview-title"><div><span class="eyebrow">LIVE PREVIEW</span><h2>پیش‌نمایش استوری</h2></div><div class="preview-head-actions"><span class="story-ratio">9:16</span><a class="btn btn-outline btn-small" href="/board" target="_blank" rel="noreferrer">بازکردن تابلو</a></div></div>
-      <div class="canvas-frame"><canvas id="storyPreview" width="540" height="960" aria-label="پیش‌نمایش استوری قیمت فرزین"></canvas></div>
-      <div class="preview-meta"><span>خروجی اصلی 1080 × 1920</span><span id="previewState">آماده انتشار</span></div>
-      <div class="preview-shortcuts"><div><span class="shortcut-icon">↻</span><span>نرخ‌ها به‌صورت زنده به‌روزرسانی می‌شوند</span></div><div><span class="shortcut-icon">PNG</span><span>بدون پنل مدیریت و اجزای اضافی</span></div></div>
+    <aside class="fz-preview-col" aria-label="پیش‌نمایش زنده استوری">
+      <div class="fz-preview-card">
+        <div class="fz-preview-head">
+          <div>
+            <h2>پیش‌نمایش استوری</h2>
+            <span class="fz-preview-meta-text" id="previewState">آماده انتشار</span>
+          </div>
+          <span class="fz-preview-meta-text fz-tabular">۹:۱۶</span>
+        </div>
+        <div class="fz-canvas-frame">
+          <canvas id="storyPreview" width="540" height="960" aria-label="پیش‌نمایش استوری قیمت فرزین"></canvas>
+        </div>
+        <div class="fz-preview-foot">
+          <span>خروجی اصلی ۱۰۸۰ × ۱۹۲۰</span>
+          <span>بروزرسانی زنده</span>
+        </div>
+        <div class="fz-preview-actions">
+          <button class="fz-btn fz-btn-primary" type="button" onclick="document.getElementById('exportPng').click()">دانلود تصویر PNG</button>
+          <a class="fz-btn fz-btn-secondary" href="/board" target="_blank" rel="noreferrer">تابلو ↗</a>
+        </div>
+      </div>
     </aside>
   </div>
-  <footer class="app-footer">FARZIN COIN · STORY STUDIO <span>ساخته‌شده برای گالری طلا و سکه فرزین</span></footer>
+
+  <footer class="fz-footer">
+    <span>گالری طلا و سکه فرزین · استودیو استوری و نمایشگر نرخ</span>
+    <span>منبع نرخ‌ها: TGJU</span>
+  </footer>
 </main>
-<div class="toast" id="toast" role="status"></div>
-<script src="/asset-catalog.js"></script><script src="/asset-icons.js"></script><script src="/quote-pricing.js"></script><script src="/app.js"></script><script src="/pwa.js" defer></script><script>window.addEventListener('load',function(){if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('/service-worker.js').catch(function(error){console.warn('[Farzin PWA]',error);});},{once:true});</script>
+
+<div class="fz-toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="/asset-catalog.js"></script>
+<script src="/asset-icons.js"></script>
+<script src="/quote-pricing.js"></script>
+<script src="/ui-components.js"></script>
+<script src="/app.js"></script>
+<script src="/pwa.js" defer></script>
+<script>window.addEventListener('load',function(){if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('/service-worker.js').catch(function(error){console.warn('[Farzin PWA]',error);});},{once:true});</script>
 </body>
 </html>
