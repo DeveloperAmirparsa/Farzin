@@ -12,29 +12,30 @@ const SOURCE_OPTIONS = [
 ];
 let LIVE_ASSET_OPTIONS = [];
 const DEFAULT_ROWS = [
-  {id:'mazaneh-main',label:'مظنه',source:'mazaneh',unit:'تومان',manualValue:'',visible:true,featured:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
-  {id:'gram18-main',label:'گرم طلای ۱۸ عیار',source:'gram18',unit:'تومان',manualValue:'',visible:true,featured:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
-  {id:'emami86-main',label:'سکه امامی ۸۶',source:'coin_full',unit:'تومان',manualValue:'',visible:true,featured:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
-  {id:'oldcoin-main',label:'سکه قدیم',source:'coin_old',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
-  {id:'half86-main',label:'نیم سکه ۸۶',source:'coin_half',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
-  {id:'quarter86-main',label:'ربع سکه ۸۶',source:'coin_quarter',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  // Approximate 2026-11-18 market snapshot; paired quotes assume lower=buy, higher=sell.
+  {id:'mazaneh-main',label:'مظنه',source:'mazaneh',unit:'تومان',manualValue:'',visible:true,featured:true,showTwoPrices:true,buySpreadPercent:0.1272,sellSpreadPercent:-0.1272},
+  {id:'gram18-main',label:'گرم طلای ۱۸ عیار',source:'gram18',unit:'تومان',manualValue:'',visible:true,featured:true,showTwoPrices:true,buySpreadPercent:0.1335,sellSpreadPercent:-0.1131},
+  {id:'emami86-main',label:'سکه امامی ۸۶',source:'coin_full',unit:'تومان',manualValue:'',visible:true,featured:true,showTwoPrices:true,buySpreadPercent:-0.0239,sellSpreadPercent:0.3829},
+  {id:'oldcoin-main',label:'سکه قدیم',source:'coin_old',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0.0124,sellSpreadPercent:-0.0124},
+  {id:'half86-main',label:'نیم سکه ۸۶',source:'coin_half',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0.1294,sellSpreadPercent:-0.4796},
+  {id:'quarter86-main',label:'ربع سکه',source:'coin_quarter',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:-0.252,sellSpreadPercent:-1.3722},
   {id:'gramcoin-main',label:'سکه یک گرمی',source:'coin_gerami',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
   {id:'gram24-main',label:'طلای ۲۴ عیار',source:'gram24',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
   {id:'gram21-main',label:'طلای ۲۱ عیار',source:'gram21',unit:'تومان',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
-  {id:'ounce-main',label:'انس طلا',source:'ounce',unit:'دلار',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0}
+  {id:'ounce-main',label:'انس طلا',source:'ounce',unit:'دلار',manualValue:'',visible:true,featured:false,showTwoPrices:true,buySpreadPercent:0.0271,sellSpreadPercent:-0.0271}
 ];
 const DEFAULT_SIDE = [
-  {id:'usd-side',label:'دلار',source:'usd',unit:'تومان',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
-  {id:'aed-side',label:'درهم',source:'aed',unit:'تومان',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
+  {id:'usd-side',label:'دلار',source:'usd',unit:'تومان',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0.8935,sellSpreadPercent:-0.8935},
+  {id:'aed-side',label:'درهم',source:'aed',unit:'تومان',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0.9493,sellSpreadPercent:-0.9493},
   {id:'eur-side',label:'یورو',source:'eur',unit:'تومان',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
   {id:'silver-side',label:'نقره ۹۹۹',source:'silver',unit:'تومان / گرم',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0},
   {id:'oil-side',label:'نفت برنت',source:'oil',unit:'دلار / بشکه',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0}
 ];
 const BOARD_DEFAULTS = {
   refreshSeconds:30, showMainRates:true, showSideRates:true, showMarketStatus:true, showClock:true,
-  showJalaliDate:true, showGregorianDate:true, showGoldChart:true, showContacts:true, showFooter:true,
+  showJalaliDate:true, showGregorianDate:true, showFooter:true,
   showNewsTicker:true, tickerLabel:'تازه‌ترین اخبار جهان', newsFeedUrl:DEFAULT_FEED, newsRefreshSeconds:180,
-  tickerSpeed:65, tickerFontSize:17, chartRange:'1d', mainColumns:2, sidePanelPercent:27, mainCardGap:18, mainFontScale:1.1, sideFontScale:1.1, cardScrollSpeed:32, tgjuWidgetCode:'', footerLines:[{id:'board-footer-quote',text:'زر، جلوه‌ای از زیبایی‌ست؛ اعتماد، ماندگارترین دارایی‌ست.',visible:true}]
+  tickerSpeed:65, tickerFontSize:17, mainColumns:2, sidePanelPercent:27, mainCardGap:18, mainFontScale:1.1, sideFontScale:1.1, cardScrollSpeed:32, tgjuWidgetCode:'', footerLines:[{id:'board-footer-quote',text:'زر، جلوه‌ای از زیبایی‌ست؛ اعتماد، ماندگارترین دارایی‌ست.',visible:true}]
 };
 const STORY_DEFAULTS = {showMainRates:true,showSideRates:true,showMarketStatus:true,showGoldChart:true,showBothDates:true,showContacts:true,showFooter:true};
 const GLOBAL_DEFAULTS = {brand:'گالری طلا و سکه فرزین',subtitle:'نرخ لحظه‌ای بازار طلا و سکه',mainTitle:'نرخ لحظه‌ای طلا و سکه',sideTitle:'ارز و بازارهای جهانی',chartTitle:'نمودار تغییرات طلای ۱۸ عیار',bgColor:'#0b0b0a',goldColor:'#c8a85c',textColor:'#f5f0e5',mutedColor:'#bcb19b',watermarkOpacity:8,showLogo:true,showFrame:true};
@@ -91,7 +92,7 @@ function renderMainRows(){
       ${iconSelect(row.icon||'')}
        <div class="row-actions"><label class="mini-check"><input type="checkbox" data-row-field="visible" ${row.visible!==false?'checked':''}> نمایش</label><label class="mini-check"><input type="checkbox" data-row-field="featured" ${row.featured?'checked':''}> ویژه</label><button class="icon-btn" data-move="up" title="بالا">↑</button><button class="icon-btn" data-move="down" title="پایین">↓</button><button class="icon-btn danger" data-delete title="حذف">×</button></div>
        <input class="row-input" style="grid-column:1/-1" data-row-field="manualValue" value="${esc(row.manualValue||'')}" placeholder="مقدار دستی؛ فقط وقتی منبع ورود دستی است">
-       <div class="card-quote-settings"><label class="mini-check"><input type="checkbox" data-row-field="showTwoPrices" ${row.showTwoPrices!==false?'checked':''}> نمایش خرید و فروش</label><label class="field"><span>حاشیه خرید (%)</span><input type="number" min="0" max="20" step="0.05" data-row-field="buySpreadPercent" value="${esc(row.buySpreadPercent??0)}"></label><label class="field"><span>حاشیه فروش (%)</span><input type="number" min="0" max="20" step="0.05" data-row-field="sellSpreadPercent" value="${esc(row.sellSpreadPercent??0)}"></label></div>
+        <div class="card-quote-settings"><label class="mini-check"><input type="checkbox" data-row-field="showTwoPrices" ${row.showTwoPrices!==false?'checked':''}> نمایش خرید و فروش</label><label class="field"><span>حاشیه خرید (%)</span><input type="number" min="-20" max="20" step="0.01" data-row-field="buySpreadPercent" value="${esc(row.buySpreadPercent??0)}"></label><label class="field"><span>حاشیه فروش (%)</span><input type="number" min="-20" max="20" step="0.01" data-row-field="sellSpreadPercent" value="${esc(row.sellSpreadPercent??0)}"></label></div>
     </div>`).join('') || '<p class="empty-custom-list">هنوز ردیفی اضافه نشده است.</p>';
   host.querySelectorAll('.config-item').forEach(el=>{
     const sIndex=Number(el.dataset.sectionIndex), rIndex=Number(el.dataset.rowIndex);
@@ -117,7 +118,7 @@ function renderSideRows(){
     ${iconSelect(item.icon||'','side')}
      <div class="row-actions"><label class="mini-check"><input type="checkbox" data-side-field="visible" ${item.visible!==false?'checked':''}> نمایش</label><button class="icon-btn" data-move="up" title="بالا">↑</button><button class="icon-btn" data-move="down" title="پایین">↓</button><button class="icon-btn danger" data-delete title="حذف">×</button></div>
      <input class="row-input" style="grid-column:1/-1" data-side-field="manualValue" value="${esc(item.manualValue||'')}" placeholder="مقدار دستی، در صورت انتخاب ورود دستی">
-     <div class="card-quote-settings"><label class="mini-check"><input type="checkbox" data-side-field="showTwoPrices" ${item.showTwoPrices!==false?'checked':''}> نمایش خرید و فروش</label><label class="field"><span>حاشیه خرید (%)</span><input type="number" min="0" max="20" step="0.05" data-side-field="buySpreadPercent" value="${esc(item.buySpreadPercent??0)}"></label><label class="field"><span>حاشیه فروش (%)</span><input type="number" min="0" max="20" step="0.05" data-side-field="sellSpreadPercent" value="${esc(item.sellSpreadPercent??0)}"></label></div>
+      <div class="card-quote-settings"><label class="mini-check"><input type="checkbox" data-side-field="showTwoPrices" ${item.showTwoPrices!==false?'checked':''}> نمایش خرید و فروش</label><label class="field"><span>حاشیه خرید (%)</span><input type="number" min="-20" max="20" step="0.01" data-side-field="buySpreadPercent" value="${esc(item.buySpreadPercent??0)}"></label><label class="field"><span>حاشیه فروش (%)</span><input type="number" min="-20" max="20" step="0.01" data-side-field="sellSpreadPercent" value="${esc(item.sellSpreadPercent??0)}"></label></div>
   </div>`).join('')||'<p class="empty-custom-list">دارایی جانبی تعریف نشده است.</p>';
   host.querySelectorAll('.config-item').forEach(el=>{
     const item=settings.sideRates.find(x=>x.id===el.dataset.sideId);if(!item)return;

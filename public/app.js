@@ -27,9 +27,10 @@ const DEFAULT_SETTINGS = {
   bgColor: '#0b0b0a', goldColor: '#c8a85c', textColor: '#f5f0e5', mutedColor: '#bcb19b',
   watermarkOpacity: 8, exportScale: 1, showFrame: true, showAttribution: true, liveEnabled: true,
   schemaVersion: 6,
+  // Approximate 2026-11-18 market snapshot; paired quotes assume lower=buy, higher=sell.
   sideRates: [
-    { id:'usd-side', label:'دلار', source:'usd', unit:'تومان', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
-    { id:'aed-side', label:'درهم', source:'aed', unit:'تومان', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+    { id:'usd-side', label:'دلار', source:'usd', unit:'تومان', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0.8935, sellSpreadPercent:-0.8935 },
+    { id:'aed-side', label:'درهم', source:'aed', unit:'تومان', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0.9493, sellSpreadPercent:-0.9493 },
     { id:'eur-side', label:'یورو', source:'eur', unit:'تومان', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
     { id:'silver-side', label:'نقره ۹۹۹', source:'silver', unit:'تومان / گرم', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
     { id:'oil-side', label:'نفت برنت', source:'oil', unit:'دلار / بشکه', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 }
@@ -44,16 +45,16 @@ const DEFAULT_SETTINGS = {
   storyConfig: { showMainRates:true, showSideRates:true, showMarketStatus:true, showGoldChart:true, showBothDates:true, showContacts:true, showFooter:true },
   sections: [
     { id:'main-prices', title:'نرخ طلا و سکه', visible:true, rows: [
-      { id:'mazaneh-main', label:'مظنه', source:'mazaneh', unit:'تومان', manualValue:'', visible:true, featured:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
-      { id:'gram18-main', label:'گرم طلای ۱۸ عیار', source:'gram18', unit:'تومان', manualValue:'', visible:true, featured:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
-      { id:'emami86-main', label:'سکه امامی ۸۶', source:'coin_full', unit:'تومان', manualValue:'', visible:true, featured:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
-      { id:'oldcoin-main', label:'سکه قدیم', source:'coin_old', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
-      { id:'half86-main', label:'نیم سکه ۸۶', source:'coin_half', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
-      { id:'quarter86-main', label:'ربع سکه ۸۶', source:'coin_quarter', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
+      { id:'mazaneh-main', label:'مظنه', source:'mazaneh', unit:'تومان', manualValue:'', visible:true, featured:true, showTwoPrices:true, buySpreadPercent:0.1272, sellSpreadPercent:-0.1272 },
+      { id:'gram18-main', label:'گرم طلای ۱۸ عیار', source:'gram18', unit:'تومان', manualValue:'', visible:true, featured:true, showTwoPrices:true, buySpreadPercent:0.1335, sellSpreadPercent:-0.1131 },
+      { id:'emami86-main', label:'سکه امامی ۸۶', source:'coin_full', unit:'تومان', manualValue:'', visible:true, featured:true, showTwoPrices:true, buySpreadPercent:-0.0239, sellSpreadPercent:0.3829 },
+      { id:'oldcoin-main', label:'سکه قدیم', source:'coin_old', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0.0124, sellSpreadPercent:-0.0124 },
+      { id:'half86-main', label:'نیم سکه ۸۶', source:'coin_half', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0.1294, sellSpreadPercent:-0.4796 },
+      { id:'quarter86-main', label:'ربع سکه ۸۶', source:'coin_quarter', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:-0.252, sellSpreadPercent:-1.3722 },
       { id:'gramcoin-main', label:'سکه یک گرمی', source:'coin_gerami', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
       { id:'gram24-main', label:'طلای ۲۴ عیار', source:'gram24', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
       { id:'gram21-main', label:'طلای ۲۱ عیار', source:'gram21', unit:'تومان', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 },
-      { id:'ounce-main', label:'انس طلا', source:'ounce', unit:'دلار', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 }
+      { id:'ounce-main', label:'انس طلا', source:'ounce', unit:'دلار', manualValue:'', visible:true, featured:false, showTwoPrices:true, buySpreadPercent:0.0271, sellSpreadPercent:-0.0271 }
     ]}
   ]};
 
@@ -297,8 +298,8 @@ function renderSectionEditors() {
           </div>
           <div class="row-quote-options">
             <label class="mini-check"><input type="checkbox" data-row-field="showTwoPrices" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" ${row.showTwoPrices !== false ? 'checked' : ''}> نمایش خرید و فروش</label>
-            <label class="field"><span>حاشیه خرید (%)</span><input class="row-input" type="number" min="0" max="20" step="0.05" data-row-field="buySpreadPercent" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" value="${esc(row.buySpreadPercent ?? 0)}"></label>
-            <label class="field"><span>حاشیه فروش (%)</span><input class="row-input" type="number" min="0" max="20" step="0.05" data-row-field="sellSpreadPercent" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" value="${esc(row.sellSpreadPercent ?? 0)}"></label>
+            <label class="field"><span>حاشیه خرید (%)</span><input class="row-input" type="number" min="-20" max="20" step="0.01" data-row-field="buySpreadPercent" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" value="${esc(row.buySpreadPercent ?? 0)}"></label>
+            <label class="field"><span>حاشیه فروش (%)</span><input class="row-input" type="number" min="-20" max="20" step="0.01" data-row-field="sellSpreadPercent" data-section-id="${esc(section.id)}" data-row-id="${esc(row.id)}" value="${esc(row.sellSpreadPercent ?? 0)}"></label>
           </div>
         </div>`).join('')}
     </div>`).join('');
@@ -442,12 +443,8 @@ function rateDataFor(rowOrSource, manualValue = '') {
   return { value:Number(item.price) / divisor, updatedAt:item.source_timestamp ?? item.updated_at ?? item.updatedAt ?? null, isManual:false, change_pct:item.change_pct ?? item.changePercent24h ?? null, direction:item.direction || null, unit:item.unit || '', source:item.source || null, receivedAt:item.received_at || null };
 }
 function storyQuotePrices(value, row = {}) {
-  if (value === null || value === undefined || value === '') return { buy:'-', sell:'-' };
-  const price = Number(value);
-  if (!Number.isFinite(price)) return { buy:'-', sell:'-' };
-  const buy = Math.max(0, Math.min(20, Number(row.buySpreadPercent) || 0));
-  const sell = Math.max(0, Math.min(20, Number(row.sellSpreadPercent) || 0));
-  return { buy:faNumber(price * (1 - buy / 100)), sell:faNumber(price * (1 + sell / 100)) };
+  const quotes = window.FarzinQuotePrices(value, row);
+  return quotes ? { buy:faNumber(quotes.buy), sell:faNumber(quotes.sell) } : { buy:'-', sell:'-' };
 }
 function drawAssetIcon(ctx,type,x,y,size=18){if(window.FarzinAssetIcons)window.FarzinAssetIcons.draw(ctx,type,x,y,size,settings.goldColor||'#c8a85c');}
 function assetIcon(item){return window.FarzinAssetIcons?window.FarzinAssetIcons.infer(item):'generic';}
@@ -494,6 +491,7 @@ function drawStoryChart(ctx, x, y, w, h) {
   drawText(ctx,`${date.weekday} · ${date.date}`,x+w-22,y+h-15,15,gold,'right',600,w*.48,11);
      ctx.restore();
 }
+function drawCardSurface(ctx,x,y,w,h,featured=false){const hue=42+12*(.5+.5*Math.sin(Date.now()/1300));ctx.save();ctx.shadowColor=`hsla(${hue},82%,62%,${featured?.48:.3})`;ctx.shadowBlur=featured?18:13;ctx.fillStyle=featured?'#111714':'#0d1312';ctx.strokeStyle=featured?'#d8bd8380':'#ffffff24';ctx.lineWidth=1.2;roundRect(ctx,x,y,w,h,22);ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.strokeStyle='#ffffff0b';ctx.lineWidth=1;roundRect(ctx,x+2,y+2,w-4,h-4,20);ctx.stroke();ctx.restore();if(featured){ctx.save();ctx.fillStyle='#d8bd83';roundRect(ctx,x+1,y+h*.28,3,h*.44,2);ctx.fill();ctx.restore();}}
 function drawStory(canvas, scale) {
   const width=1080,height=1920;canvas.width=width*scale;canvas.height=height*scale;
   const ctx=canvas.getContext('2d');ctx.setTransform(scale,0,0,scale,0,0);
@@ -522,10 +520,11 @@ function drawStory(canvas, scale) {
   let cursorY=headerY+Math.ceil(headerCards.length/2)*(headerCellH+headerGapY)-headerGapY+18;
   const drawRateCard=(row,x,y,w,h)=>{
     const data=rateDataFor(row),featured=Boolean(row.featured),unit=data.unit||row.unit||'',single=row.showTwoPrices===false;
-    ctx.save();ctx.fillStyle=featured?'#c8a6531c':'#ffffff09';ctx.strokeStyle=featured?`${gold}dd`:`${gold}65`;ctx.lineWidth=featured?2:1.3;roundRect(ctx,x,y,w,h,16);ctx.fill();ctx.stroke();ctx.restore();
+    drawCardSurface(ctx,x,y,w,h,featured);
     drawAssetIcon(ctx,assetIcon(row),x+22,y+Math.min(18,h*.22),Math.min(17,h*.22));
-     drawFitText(ctx,row.label||'',x+w/2,y+Math.min(21,h*.29),Math.min(19,h*.24),muted,'center',700,w-64,12);
-     if(single){
+    if(single){drawFitText(ctx,row.label||'',x+w-18,y+Math.min(21,h*.29),Math.min(19,h*.24),muted,'right',700,w-48,12);}
+    else {drawFitText(ctx,row.label||'',x+w/2,y+Math.min(21,h*.29),Math.min(19,h*.24),muted,'center',700,w-64,12);}
+    if(single){
        const value=data.value===''?'-':formatValue(data.value);
        drawStoryPrice(ctx,value,unit,x+w/2,y+h*.73,Math.min(56,h*.55,w*.18),featured?'#f0d17a':main,w-36,18);
       if(h>=90&&data.change_pct!==null&&data.change_pct!==undefined&&Number.isFinite(Number(data.change_pct))){const pct=Number(data.change_pct),trendColor=data.direction==='up'?'#69d79a':data.direction==='down'?'#ef8580':muted,trend=`${faNumber(Math.abs(pct))}٪`;drawStoryArrow(ctx,x+25,y+h-19,data.direction);drawFitText(ctx,trend,x+58,y+h-13,16,trendColor,'left',600,w*.3,11);}

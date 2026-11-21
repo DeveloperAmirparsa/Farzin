@@ -48,7 +48,7 @@ const TGJU_TIMEOUT_MS = 4_500;
 const HISTORY_FILE = path.join(DATA_DIR, 'tgju-history.json');
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon'
 };
 
@@ -581,7 +581,7 @@ const server = http.createServer(async (req, res) => {
     });
   }
   if (url.pathname === '/403' || url.pathname === '/403/') return sendForbidden(res);
-  if (!hasValidSession(req) && !(url.pathname === '/api/health' && req.method === 'GET') && !['/login.css', '/login.js', '/boot.css', '/boot.js', '/farzin-logo.png'].includes(url.pathname)) {
+  if (!hasValidSession(req) && !(url.pathname === '/api/health' && req.method === 'GET') && !['/login.css', '/login.js', '/boot.css', '/boot.js', '/farzin-logo.png', '/manifest.webmanifest', '/app-icon.svg', '/service-worker.js', '/pwa.js'].includes(url.pathname)) {
     if (url.pathname.startsWith('/api/')) return sendJson(res, 401, { error: 'ورود به سامانه لازم است.', login: '/login' });
     return redirectToLogin(req, res);
   }

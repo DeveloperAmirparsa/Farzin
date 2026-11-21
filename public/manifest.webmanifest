@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "استودیو و تابلو فرزین",
+  "short_name": "فرزین",
+  "description": "تابلو زنده قیمت طلا، سکه و بازارهای جهانی",
+  "lang": "fa-IR",
+  "dir": "rtl",
+  "start_url": "/board",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b100f",
+  "theme_color": "#0b100f",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

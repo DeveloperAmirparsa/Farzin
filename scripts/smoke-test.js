@@ -93,13 +93,22 @@ async function testBoardBootWithoutStructuredClone() {
   assert.equal(elements.get('boardCanvas').height, 1440, 'canvas should retain 16:9 proportions on HiDPI screens');
   assert.ok(transforms.length > 0, 'responsive canvas should apply a design-space transform');
   assert.equal(typeof resizeHandler, 'function', 'board should listen for viewport/display size changes');
-  window.innerWidth = 390; window.innerHeight = 844; window.devicePixelRatio = 3; resizeHandler();
+  window.innerWidth = 390; window.innerHeight = 844; window.devicePixelRatio = 3;
+  document.innerWidth = 390; document.innerHeight = 844; document.devicePixelRatio = 3; resizeHandler();
   assert.equal(elements.get('boardCanvas').width, 780, 'mobile canvas backing dimensions should respect the DPR safety cap');
   assert.equal(elements.get('boardCanvas').height, 1688, 'mobile canvas backing dimensions should follow the viewport');
-  assert.ok(transforms.at(-1)[0] < 1, 'board design should scale down on a narrow mobile viewport');
-  window.innerWidth = 3840; window.innerHeight = 2160; resizeHandler();
+  assert.ok(transforms.at(-1)[0] < 1, 'board width should scale to a narrow mobile viewport');
+  assert.equal(transforms.at(-1)[1], 0, 'viewport-filling board should not letterbox horizontally');
+  assert.equal(transforms.at(-1)[2], 0, 'viewport-filling board should not letterbox vertically');
+  assert.ok(transforms.at(-1)[3] > 0, 'board height should independently fill tall viewports');
+  window.innerWidth = 2560; window.innerHeight = 1600; window.devicePixelRatio = 1;
+  document.innerWidth = 2560; document.innerHeight = 1600; document.devicePixelRatio = 1; resizeHandler();
+  assert.equal(transforms.at(-1)[0], 2560/1920, '16:10 television width should be filled');
+  assert.equal(transforms.at(-1)[3], 1600/1080, '16:10 television height should be filled without letterboxing');
+  window.innerWidth = 3840; window.innerHeight = 2160; window.devicePixelRatio = 2;
+  document.innerWidth = 3840; document.innerHeight = 2160; document.devicePixelRatio = 2; resizeHandler();
   assert.equal(elements.get('boardCanvas').width, 4096, '4K rendering should stay within the canvas memory safety cap');
-  assert.ok(transforms.length > 1, 'canvas should recalculate scale after display resolution changes');
+  assert.ok(transforms.length > 1, 'canvas should recalculate independent axis scales after display resolution changes');
 }
 
 function testBoardLongTextFit() {
@@ -127,25 +136,43 @@ function testBoardCardLayout() {
     assert.ok(declaration, `board should provide ${name}`);
     return declaration;
   });
-  const sandbox = { Math, Number, String, Boolean, Intl };
+  const sandbox = { Math, Number, String, Boolean, Intl, window: {} };
+  vm.runInNewContext(fs.readFileSync(path.join(publicDir, 'quote-pricing.js'), 'utf8'), sandbox);
   vm.runInNewContext(`function faNum(value){return new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).formatToParts(value).map(part=>part.type==='group'?',':part.type==='decimal'?'.':part.value).join('');}\n${declarations.join('\n')}; this.cardGrid = cardGrid; this.centeredText = centeredText; this.quotePrices = quotePrices; this.faNum = faNum;`, sandbox);
   const rows = Array.from({ length: 10 }, (_, i) => ({ id: i }));
   const first = sandbox.cardGrid(rows, 2, 60, 250, 1000, 420, 14, 4);
   assert.equal(first.rows, 5, 'main cards should retain all configured rows in the scrolling strip');
   assert.equal(first.items.length, 10, 'main-card scrolling should include every configured card');
   assert.equal(first.scrollable, true, 'main-card strip should scroll when it exceeds the viewport');
+  assert.equal(sandbox.cardGrid(rows.slice(0, 6), 2, 60, 250, 1000, 420, 14, 4).scrollable, false, 'card strip should stay still when it fits');
   assert.equal(first.positions[1].x, 567, 'card positions should follow predictable grid columns');
   assert.equal(first.positions[1].y, 250, 'card positions should stay on the first grid row');
   assert.equal(first.cycleHeight, first.rows * first.rowPitch, 'scroll cycle should land at the same card position after a full loop');
-  assert.match(source, /cardScrollOffset\+=scrollSpeed\*dt;sideScrollOffset\+=scrollSpeed\*dt/, 'main and side card strips should continuously scroll');
+  assert.match(source, /if\(!reducedMotion&&mainRows\(\)\.length>columns\*3\)cardScrollOffset\+=scrollSpeed\*dt/, 'main cards should animate only when overflowing and motion is allowed');
+  assert.match(source, /if\(!reducedMotion&&\(settings\.sideRates\|\|\[\]\)\.filter\(item=>item\.visible!==false\)\.length>6\)sideScrollOffset\+=scrollSpeed\*dt/, 'side cards should animate only when overflowing and motion is allowed');
   assert.match(source, /cycles=grid\.scrollable\?Array\.from\(\{length:Math\.ceil\(areaH\/grid\.cycleHeight\)\+2\}/, 'main strip should draw enough repeated cycles to avoid blank gaps');
   assert.match(source, /cycles=grid\.scrollable\?Array\.from\(\{length:Math\.ceil\(listH\/grid\.cycleHeight\)\+2\}/, 'side strip should draw enough repeated cycles to avoid blank gaps');
   assert.match(source, /centeredText\(ctx,'خرید ما'/, 'cards should label the buy quote');
   assert.match(source, /centeredText\(ctx,'فروش ما'/, 'cards should label the sell quote');
   assert.match(source, /card\.showTwoPrices===false/, 'single-price mode should be configured independently on each rate card');
+  assert.match(source, /function drawCardSurface[\s\S]*ctx\.shadowColor=`hsla\(\$\{hue\},82%,62%,\$\{featured\?\.48:\.3\}\)`;ctx\.shadowBlur=featured\?18:13/, 'all board cards should share a restrained animated glow');
+  assert.match(source, /ctx\.fillStyle=featured\?'#111714':'#0d1312'/, 'board cards should use solid dark fills instead of glass backgrounds');
+  assert.match(source, /roundRect\(ctx,x,y,w,h,22\)/, 'board cards should use softer rounded corners');
+  assert.match(source, /if\(row\.showTwoPrices===false\)text\(ctx,row\.label\|\|'',x\+grid\.cardW-18,cy\+Math\.min\(26,grid\.cardH\*\.2\)/, 'single-price main cards should put the asset label in the upper-right corner');
+  assert.match(source, /drawAssetIcon\(assetIcon\(row\),row\.showTwoPrices===false\?x\+22:x\+grid\.cardW-22/, 'single-price card icon should leave the upper-right label unobstructed');
   assert.doesNotMatch(source, /hasSpread|!hasSpread/, 'enabled two-price mode should not be hidden when spreads are zero');
   assert.match(source, /drawCardQuotes\(rate,row,/, 'main cards should render using their own quote settings');
-  assert.match(source, /drawCardQuotes\(rate,item,/, 'side cards should render using their own quote settings');
+  assert.match(source, /function drawSideCard\(item,rate,x,y,w,h,fontScale\)/, 'side cards should use a dedicated readable layout');
+  assert.match(source, /drawFadedAssetIcon\(assetIcon\(item\),x\+w\*\.77,y\+h\*\.59,Math\.min\(76,h\*\.72\),\.1\)/, 'side cards should use a faded, perspective icon in the background');
+  assert.match(source, /text\(ctx,item\.label\|\|'',x\+w-18,y\+Math\.min\(27,h\*\.24\),labelSize,settings\.textColor,'right'/, 'side-card asset label should sit at the upper-right corner');
+  assert.match(source, /function drawFadedAssetIcon\(type,x,y,size,alpha=\.1\)/, 'board cards should share a faded perspective background icon renderer');
+  assert.match(source, /centeredText\(ctx,prices\.buy,x\+w\/2,buyY/, 'side buy price should be centered on the card');
+  assert.match(source, /centeredText\(ctx,prices\.sell,x\+w\/2,sellY/, 'side sell price should be centered on the card');
+  assert.match(source, /text\(ctx,unit,x\+12,buyY\+4/, 'buy-unit label should stay left of the centered price');
+  assert.match(source, /text\(ctx,unit,x\+12,sellY\+4/, 'sell-unit label should stay left of the centered price');
+  assert.match(source, /centeredText\(ctx,'خرید',x\+w-14,buyY/, 'side buy label should align at the right of the centered price');
+  assert.match(source, /centeredText\(ctx,'فروش',x\+w-14,sellY/, 'side sell label should align at the right of the centered price');
+  assert.match(source, /drawSideCard\(item,rateFor\(item\),/, 'side list should render each item through the dedicated card layout');
   assert.match(fs.readFileSync(path.join(publicDir, 'board-config.js'), 'utf8'), /data-row-field="buySpreadPercent"[\s\S]*data-row-field="sellSpreadPercent"/, 'main card editor should expose independent buy and sell spreads');
   assert.match(fs.readFileSync(path.join(publicDir, 'board-config.js'), 'utf8'), /data-side-field="buySpreadPercent"[\s\S]*data-side-field="sellSpreadPercent"/, 'side card editor should expose independent buy and sell spreads');
   const quotes = sandbox.quotePrices({ price: 1000 }, { buySpreadPercent: 2, sellSpreadPercent: 3 });
@@ -155,6 +182,9 @@ function testBoardCardLayout() {
   const independentQuotes = sandbox.quotePrices({ price: 1000 }, { buySpreadPercent: 5, sellSpreadPercent: 1 });
   assert.equal(independentQuotes.buy, '۹۵۰', 'each card should calculate its configured buy spread independently');
   assert.equal(independentQuotes.sell, '۱,۰۱۰', 'each card should calculate its configured sell spread independently');
+  const signedQuotes = sandbox.quotePrices({ price: 1000 }, { buySpreadPercent: -0.5, sellSpreadPercent: -1.25 });
+  assert.equal(signedQuotes.buy, '۱,۰۰۵', 'negative buy spreads should allow premiums above the source quote');
+  assert.equal(signedQuotes.sell, '۹۸۷.۵', 'negative sell spreads should allow discounts below the source quote');
   const boardHtml = fs.readFileSync(path.join(publicDir, 'board.html'), 'utf8');
   assert.match(boardHtml, /id="farzinLogout"/, 'board should provide secure logout inside its controls');
   assert.match(boardHtml, /\.board-controls\.hidden\{opacity:0;pointer-events:none\}/, 'board controls including logout should auto-hide');
@@ -183,8 +213,9 @@ function testStoryCardQuotes() {
   const formatter = source.match(/function faNumber\([\s\S]*?\n\}/)?.[0];
   const quoteCalculator = source.match(/function storyQuotePrices\([\s\S]*?\n\}/)?.[0];
   assert.ok(formatter && quoteCalculator, 'story should provide a quote calculator and number formatter');
-  const sandbox = { Intl, Number, String, Math };
-  vm.runInNewContext(`${formatter}\n${quoteCalculator}; this.storyQuotePrices = storyQuotePrices;`, sandbox);
+  const sharedPricing = fs.readFileSync(path.join(publicDir, 'quote-pricing.js'), 'utf8');
+  const sandbox = { Intl, Number, String, Math, window: {} };
+  vm.runInNewContext(`${sharedPricing}\n${formatter}\n${quoteCalculator}; this.storyQuotePrices = storyQuotePrices;`, sandbox);
   const quotes = sandbox.storyQuotePrices(1000, { buySpreadPercent:2, sellSpreadPercent:3 });
   assert.equal(quotes.buy, '۹۸۰', 'story buy quote should apply its configured discount');
   assert.equal(quotes.sell, '۱,۰۳۰', 'story sell quote should apply its configured premium');
@@ -202,6 +233,36 @@ function testStoryCardQuotes() {
   assert.match(source, /data\.value===''\?'-':formatValue\(data\.value\)/, 'missing market prices should render as a dash');
 }
 
+function testSharedQuotePricing() {
+  const pricing = fs.readFileSync(path.join(publicDir, 'quote-pricing.js'), 'utf8');
+  const board = fs.readFileSync(path.join(publicDir, 'board.js'), 'utf8');
+  const story = fs.readFileSync(path.join(publicDir, 'app.js'), 'utf8');
+  const boardHtml = fs.readFileSync(path.join(publicDir, 'board.html'), 'utf8');
+  const storyHtml = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8');
+  assert.match(boardHtml, /quote-pricing\.js[\s\S]*board\.js/, 'board should load shared quote pricing before its renderer');
+  assert.match(storyHtml, /quote-pricing\.js[\s\S]*app\.js/, 'story should load shared quote pricing before its renderer');
+  assert.match(board, /window\.FarzinQuotePrices\(rate\?\.price,card\)/, 'board should use the shared quote calculator');
+  assert.match(story, /window\.FarzinQuotePrices\(value, row\)/, 'story should use the shared quote calculator');
+  const sandbox = { Number, Math, window: {} };
+  vm.runInNewContext(pricing, sandbox);
+  const expected = { buy:950, sell:1010 };
+  assert.deepEqual({ ...sandbox.window.FarzinQuotePrices(1000, { buySpreadPercent:5, sellSpreadPercent:1 }) }, expected, 'both outputs should share identical buy/sell values for the same source quote and settings');
+  const signed = sandbox.window.FarzinQuotePrices(1000, { buySpreadPercent:-0.5, sellSpreadPercent:-1.25 });
+  assert.ok(Math.abs(signed.buy - 1005) < 1e-9 && Math.abs(signed.sell - 987.5) < 1e-9, 'signed spreads should support premiums and discounts on either quote');
+  assert.deepEqual({ ...sandbox.window.FarzinQuotePrices(1000, { buySpreadPercent:-30, sellSpreadPercent:30 }) }, { buy:1200, sell:1200 }, 'signed spread limits should remain bounded to twenty percent');
+  assert.equal(sandbox.window.FarzinQuotePrices('', { buySpreadPercent:5, sellSpreadPercent:1 }), null, 'missing source prices should not become zero quotes');
+  const app = fs.readFileSync(path.join(publicDir, 'app.js'), 'utf8');
+  const defaults = app.match(/const DEFAULT_SETTINGS = ([\s\S]*?)\n\nlet settings/)?.[1];
+  const normalizer = app.match(/function normalizeSettings\(raw = \{\}\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(defaults && normalizer, 'story should define defaults and settings normalization');
+  const settingsSandbox = { clone: value => JSON.parse(JSON.stringify(value)), makeId: prefix => `${prefix}-test` };
+  vm.runInNewContext(`const DEFAULT_SETTINGS = ${defaults}\n${normalizer}; this.normalizeSettings = normalizeSettings;`, settingsSandbox);
+  const saved = settingsSandbox.normalizeSettings({ schemaVersion:6, sections:[{ rows:[{ source:'gram18', buySpreadPercent:-2, sellSpreadPercent:3 }] }], sideRates:[{ source:'usd', buySpreadPercent:4, sellSpreadPercent:-5 }] });
+  assert.equal(saved.sections[0].rows[0].buySpreadPercent, -2, 'normalization should preserve explicitly saved negative spreads');
+  assert.equal(saved.sections[0].rows[0].sellSpreadPercent, 3, 'normalization should preserve explicitly saved positive spreads');
+  assert.equal(saved.sideRates[0].sellSpreadPercent, -5, 'normalization should preserve saved settings on side rates');
+}
+
 function testStoryLongTextFit() {
   const source = fs.readFileSync(path.join(publicDir, 'app.js'), 'utf8');
   assert.match(source, /const drawRateCard=\(row,x,y,w,h\)=>/, 'story rates should use a shared redesigned rate-card renderer');
@@ -215,6 +276,8 @@ function testStoryLongTextFit() {
   assert.match(source, /const col=i%2,row=Math\.floor\(i\/2\)/, 'story header cards should use a two-column grid');
   assert.doesNotMatch(source, /gregorianDate|میلادی \$\{/, 'story output should omit Gregorian dates');
   assert.match(source, /drawStoryPrice\(ctx,value,unit,/, 'story single-price cards should place the unit beside the value');
+  assert.match(source, /drawAssetIcon\(ctx,assetIcon\(row\),x\+22,y\+Math\.min\(18,h\*\.22\)/, 'story cards should retain their standard leading asset icon');
+  assert.match(source, /drawFitText\(ctx,row\.label\|\|'',x\+w\/2,y\+Math\.min\(21,h\*\.29\)/, 'story card labels should remain centered');
   assert.match(source, /mid=cy\+ch\/2/, 'story info cards should center their content vertically');
   assert.match(source, /brandW\+gap\+size,left=\(width-groupW\)\/2/, 'story header brand and logo group should be centered with equal frame margins');
   assert.match(source, /valueY=y\+h\*\.84/, 'story buy and sell values should remain within compact market cards');
@@ -401,9 +464,10 @@ async function testServerRoutes() {
     assert.match(loginResponse.headers.get('set-cookie'), /HttpOnly/);
     assert.match(loginResponse.headers.get('set-cookie'), /SameSite=Strict/);
     const authFetch = (url, options = {}) => fetch(url, { ...options, headers: { ...(options.headers || {}), Cookie: cookie } });
-    for (const route of ['/', '/board', '/board-config', '/tgju-widget', '/board.js', '/board-config.js', '/tgju-widget.js', '/asset-catalog.js', '/asset-icons.js', '/farzin-logo.png']) {
+    for (const route of ['/', '/board', '/board-config', '/tgju-widget', '/board.js', '/board-config.js', '/tgju-widget.js', '/asset-catalog.js', '/asset-icons.js', '/farzin-logo.png', '/manifest.webmanifest', '/app-icon.svg', '/service-worker.js', '/pwa.js']) {
       const response = await authFetch(`${base}${route}`, { signal: AbortSignal.timeout(3000) });
       assert.equal(response.status, 200, `${route} should return HTTP 200`);
+      if (route === '/manifest.webmanifest') assert.match(response.headers.get('content-type'), /application\/manifest\+json/, 'manifest should use the PWA manifest MIME type');
     }
     const health = await (await fetch(`${base}/api/health`)).json();
     assert.equal(health.ok, true);
@@ -469,6 +533,7 @@ async function testServerRoutes() {
 testBoardCardLayout();
   testNumberSeparators();
   testStoryCardQuotes();
+  testSharedQuotePricing();
   testStoryLongTextFit();
   for (const file of ['board.js', 'app.js']) {
     const source = fs.readFileSync(path.join(publicDir, file), 'utf8');
@@ -490,7 +555,11 @@ testBoardCardLayout();
   assert.ok(!boardJs.includes('(settings.footerLines||[])'), 'Board must not consume the Story footer');
   assert.ok(boardConfigJs.includes('settings.boardConfig.footerLines'), 'Board config editor should modify only the Board footer');
   assert.ok(boardJs.includes('requestAnimationFrame'), 'News ticker should animate smoothly with requestAnimationFrame');
-  assert.ok(boardJs.includes('setInterval(refreshLiveHeader,1000)'), 'Tehran clock should continue updating every second');
+  assert.ok(boardJs.includes('cachedClockSecond') && boardJs.includes('tehranClock()'), 'Tehran clock should update without constructing formatters on every frame');
+  const manifest = JSON.parse(fs.readFileSync(path.join(publicDir, 'manifest.webmanifest'), 'utf8'));
+  assert.equal(manifest.display, 'standalone', 'PWA should support standalone installation');
+  assert.ok(fs.existsSync(path.join(publicDir, 'service-worker.js')), 'PWA should register a service worker');
+  assert.ok(fs.existsSync(path.join(publicDir, 'app-icon.svg')), 'PWA should provide an install icon');
   assert.ok(boardJs.includes('tehranClock()') && boardJs.includes("'ساعت زنده تهران'"), 'Tehran time should render in a dedicated header card');
   assert.ok(serverSourceHasPersianNews(), 'News feed backend should use Persian-language world feeds and reject English-only headlines');
   await testServerRoutes();

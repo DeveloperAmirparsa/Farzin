@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0b0b0a">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/farzin-logo.png">
 <title>استودیو استوری فرزین</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,7 +23,7 @@
       <div class="brand-mark"><img id="adminLogo" src="/farzin-logo.png" alt="لوگوی فرزین"></div>
       <div><div class="eyebrow">FARZIN COIN · STORY STUDIO</div><h1>استودیو استوری فرزین</h1><p>ساخت و انتشار تصویر قیمت طلا و سکه</p></div>
     </div>
-    <div class="header-status"><span class="status-dot" id="statusDot"></span><span id="connectionLabel">آماده اتصال به بازار</span><a class="btn btn-outline board-launch" href="/board-config" target="_blank" rel="noreferrer">⚙ کانفیگ تابلو</a><a class="btn btn-primary board-launch" href="/board" target="_blank" rel="noreferrer">▣ تابلو ۱۹۲۰ × ۱۰۸۰</a></div>
+    <div class="header-status"><span class="status-dot" id="statusDot"></span><span id="connectionLabel">آماده اتصال به بازار</span><button class="btn btn-outline board-launch" type="button" data-pwa-install>نصب وب‌اپ</button><a class="btn btn-outline board-launch" href="/board-config" target="_blank" rel="noreferrer">⚙ کانفیگ تابلو</a><a class="btn btn-primary board-launch" href="/board" target="_blank" rel="noreferrer">▣ تابلو ۱۹۲۰ × ۱۰۸۰</a></div>
   </header>
 
   <section class="market-strip">
@@ -122,6 +127,6 @@
   <footer class="app-footer">FARZIN COIN · STORY STUDIO <span>ساخته‌شده برای گالری طلا و سکه فرزین</span></footer>
 </main>
 <div class="toast" id="toast" role="status"></div>
-<script src="/asset-catalog.js"></script><script src="/asset-icons.js"></script><script src="/app.js"></script>
+<script src="/asset-catalog.js"></script><script src="/asset-icons.js"></script><script src="/quote-pricing.js"></script><script src="/app.js"></script><script src="/pwa.js" defer></script><script>window.addEventListener('load',function(){if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('/service-worker.js').catch(function(error){console.warn('[Farzin PWA]',error);});},{once:true});</script>
 </body>
 </html>
