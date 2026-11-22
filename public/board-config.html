@@ -154,7 +154,7 @@
             <label class="fz-check"><input type="checkbox" data-board="showNewsTicker" checked><span>نوار اخبار اقتصادی</span></label>
           </div>
           <div class="fz-field-grid config-fields">
-            <label class="fz-field"><span>فاصله بروزرسانی نرخ‌ها (ثانیه)</span><input type="number" min="20" max="300" step="5" data-board="refreshSeconds"></label>
+            <label class="fz-field"><span>فاصله بروزرسانی نرخ‌ها (ثانیه)</span><input type="number" min="1" max="300" step="1" data-board="refreshSeconds"></label>
             <label class="fz-field"><span>تعداد ستون کارت‌های نرخ اصلی</span><select data-board="mainColumns"><option value="1">۱ ستون</option><option value="2">۲ ستون</option><option value="3">۳ ستون</option></select></label>
             <label class="fz-field"><span>عرض پنل سمت راست (درصد)</span><input type="number" min="20" max="40" step="1" data-board="sidePanelPercent"></label>
             <label class="fz-field"><span>فاصله کارت‌های نرخ (px)</span><input type="number" min="12" max="28" step="1" data-board="mainCardGap"></label>
@@ -232,7 +232,7 @@
         <div class="fz-card-body">
           <div class="provider-box">
             <b>شبکه اطلاع‌رسانی طلا و ارز · TGJU</b>
-            <p>سرور محلی هر ۳۰ ثانیه داده‌ها را دریافت می‌کند و تابلو بدون انتظار برای سرویس بیرونی باز می‌شود.</p>
+            <p>سرور محلی هر ۱ ثانیه داده‌ها را دریافت می‌کند و تابلو بدون انتظار برای سرویس بیرونی باز می‌شود.</p>
             <div class="provider-foot" id="tgjuSourceStatus">در حال بررسی ارتباط با TGJU…</div>
             <button class="fz-btn fz-btn-secondary fz-btn-sm" id="forceTgjuRefresh" type="button">دریافت نرخ همین حالا</button>
           </div>
@@ -308,7 +308,7 @@
           <div class="source-note">
             <b>مشخصات فید زنده</b><br>
             طلا، سکه، ارز، نقره و نفت: TGJU<br>
-            بروزرسانی خودکار: هر ۳۰ ثانیه<br>
+            بروزرسانی خودکار: هر ۱ ثانیه<br>
             خبرخوان: RSS فارسی
           </div>
         </div>

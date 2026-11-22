@@ -43,9 +43,9 @@ const TGJU_FALLBACK_FEEDS = [
 ];
 // Optional endpoint override is useful for a trusted local proxy or an isolated test.
 const TGJU_FEEDS = [...new Set([process.env.TGJU_FEED_URL, ...TGJU_FALLBACK_FEEDS].filter(Boolean))];
-const TGJU_POLL_MS = 30_000;
-const TGJU_ERROR_RETRY_MS = 8_000;
-const TGJU_TIMEOUT_MS = 4_500;
+const TGJU_POLL_MS = 1_000;
+const TGJU_ERROR_RETRY_MS = 2_000;
+const TGJU_TIMEOUT_MS = 3_500;
 const HISTORY_FILE = path.join(DATA_DIR, 'tgju-history.json');
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -189,7 +189,7 @@ let tgjuLastError = '';
 let tgjuSnapshot = {
   status: 'connecting', source: 'TGJU', updated_at: null, received_at: null,
   prices: {}, sideRates: {}, assets: {}, history: { points: [] }, errors: { tgju: 'در انتظار اولین دریافت از TGJU' },
-  providers: { tgju: false }, hasPrices: false, market_open: null, cache_window_seconds: 30
+  providers: { tgju: false }, hasPrices: false, market_open: null, cache_window_seconds: 1
 };
 let priceHistory = readJson(HISTORY_FILE, []);
 if (!Array.isArray(priceHistory)) priceHistory = [];
@@ -386,7 +386,7 @@ function getDashboardSnapshot() {
     const stamp = gold?.source_timestamp ? Date.parse(gold.source_timestamp) : Date.parse(gold?.received_at || '');
     const age = Number.isFinite(stamp) ? Math.max(0, Date.now() - stamp) : Infinity;
     payload.data_age_ms = age;
-    payload.freshness = age <= TGJU_POLL_MS * 2 ? 'live' : age <= 5 * 60_000 ? 'delayed' : 'stale';
+    payload.freshness = age <= Math.max(60_000, TGJU_POLL_MS * 2) ? 'live' : age <= 5 * 60_000 ? 'delayed' : 'stale';
     if (payload.freshness === 'stale') payload.status = 'stale';
     else if (payload.freshness === 'delayed' && payload.status === 'online') payload.status = 'delayed';
   } else if (!payload.hasPrices) payload.freshness = 'offline';
@@ -618,11 +618,11 @@ async function routeApi(req, res, pathname) {
   if (pathname === '/api/public-config' && req.method === 'GET') {
     const settings = readJson(SETTINGS_FILE, null);
     if (settings && settings.boardConfig) delete settings.boardConfig.tgjuWidgetCode;
-    return sendJson(res, 200, { settings, source: 'TGJU', refreshSeconds: 30 });
+    return sendJson(res, 200, { settings, source: 'TGJU', refreshSeconds: 1 });
   }
   if (pathname === '/api/config' && req.method === 'GET') {
     const settings = readJson(SETTINGS_FILE, null);
-    return sendJson(res, 200, { settings, apiKeyConfigured: false, arzhaamKeyConfigured: false, source: 'TGJU', sourceRequiresKey: false, refreshSeconds: 30 });
+    return sendJson(res, 200, { settings, apiKeyConfigured: false, arzhaamKeyConfigured: false, source: 'TGJU', sourceRequiresKey: false, refreshSeconds: 1 });
   }
   if (pathname === '/api/logo-meta' && req.method === 'GET') {
     try {

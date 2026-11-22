@@ -41,9 +41,17 @@
     ]}
   ];
   const specificIcon = (symbol, fallback) => {
-    const map = {'crypto-bitcoin':'bitcoin','crypto-ethereum':'ethereum','crypto-tether':'tether','crypto-tether-toman':'tether','crypto-ripple':'ripple','crypto-solana':'solana','crypto-binance-coin':'bnb','crypto-cardano':'cardano','crypto-dogecoin':'dogecoin','crypto-tron':'tron','price_dollar_rl':'usd','price_eur':'eur','price_gbp':'gbp','price_aed':'aed','price_try':'try','price_cad':'cad','price_chf':'chf','price_cny':'cny','price_jpy':'jpy','price_iqd':'iqd','price_rub':'rub'};
+    const map = {
+      'ons':'ounce','gold_global':'ounce',
+      'crypto-bitcoin':'bitcoin','crypto-ethereum':'ethereum','crypto-tether':'tether','crypto-tether-toman':'tether',
+      'crypto-ripple':'ripple','crypto-solana':'solana','crypto-binance-coin':'bnb','crypto-cardano':'cardano',
+      'crypto-dogecoin':'dogecoin','crypto-tron':'tron',
+      'price_dollar_rl':'usd','price_eur':'eur','price_gbp':'gbp','price_aed':'aed','price_try':'try',
+      'price_cad':'cad','price_chf':'chf','price_cny':'cny','price_jpy':'jpy','price_iqd':'iqd',
+      'price_rub':'rub','price_omr':'omr','price_sar':'sar','price_kwd':'kwd','price_aud':'aud'
+    };
     return map[symbol] || fallback;
   };
   const items = groups.flatMap(group => group.items.map(([id,label,symbol,unit,divisor]) => ({id,label,symbol,unit,divisor,category:group.id,categoryLabel:group.label,icon:specificIcon(symbol,group.icon)})));
-  root.FARZIN_ASSET_CATALOG = { groups, items, iconTypes:['auto','gold','coin','silver','currency','crypto','bitcoin','ethereum','tether','ripple','solana','bnb','cardano','dogecoin','tron','usd','eur','gbp','aed','try','cad','chf','cny','jpy','iqd','rub','oil','metal','commodity','forex','stock','fund','bond','generic'] };
+  root.FARZIN_ASSET_CATALOG = { groups, items, iconTypes:['auto','gold','ounce','coin','silver','currency','crypto','bitcoin','ethereum','tether','ripple','solana','bnb','cardano','dogecoin','tron','usd','eur','gbp','aed','try','cad','chf','cny','jpy','iqd','rub','omr','sar','kwd','aud','oil','metal','commodity','forex','stock','fund','bond','generic'] };
 })(window);

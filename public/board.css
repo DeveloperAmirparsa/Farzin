@@ -459,16 +459,17 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: max(4px, calc(0.36 * var(--u)));
-  padding: max(6px, calc(0.56 * var(--u))) max(10px, calc(0.95 * var(--u)));
-  line-height: 1.28;
+  gap: max(8px, calc(0.58 * var(--u)));
+  min-height: max(126px, calc(7.8 * var(--u)));
+  padding: max(12px, calc(0.92 * var(--u))) max(14px, calc(1.25 * var(--u)));
+  line-height: 1.3;
   background:
     radial-gradient(360px circle at var(--mx, 50%) var(--my, 15%), rgba(197, 168, 117, 0.12), transparent 62%),
     var(--board-surface);
   -webkit-backdrop-filter: blur(18px) saturate(120%);
   backdrop-filter: blur(18px) saturate(120%);
   border: 1px solid var(--board-line-subtle);
-  border-radius: max(10px, calc(0.73 * var(--u)));
+  border-radius: max(12px, calc(0.86 * var(--u)));
   box-shadow: var(--board-card-shadow), var(--board-inner-glow);
   min-width: 0;
   overflow: hidden;
@@ -520,29 +521,89 @@ html[data-theme="light"] .masthead-logo {
   opacity: 0.85;
 }
 
+.card-bg-emblem {
+  position: absolute;
+  inset-block: -8%;
+  inset-inline-end: -2%;
+  width: 56%;
+  max-width: 210px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.28;
+  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.96) 0%, rgba(0, 0, 0, 0.72) 45%, rgba(0, 0, 0, 0.16) 78%, transparent 100%);
+  mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.96) 0%, rgba(0, 0, 0, 0.72) 45%, rgba(0, 0, 0, 0.16) 78%, transparent 100%);
+  transform: perspective(600px) rotateY(14deg) rotateX(4deg);
+  transition: opacity 260ms var(--board-ease), transform 340ms var(--board-ease);
+}
+
+.side-card .card-bg-emblem {
+  width: 54%;
+  max-width: 156px;
+  opacity: 0.25;
+}
+
+html[data-theme="light"] .card-bg-emblem {
+  opacity: 0.17;
+}
+
+.rate-card:hover .card-bg-emblem,
+.side-card:hover .card-bg-emblem {
+  opacity: 0.36;
+  transform: perspective(600px) rotateY(8deg) rotateX(2deg) scale(1.03);
+}
+
+html[data-theme="light"] .rate-card:hover .card-bg-emblem,
+html[data-theme="light"] .side-card:hover .card-bg-emblem {
+  opacity: 0.23;
+}
+
+.fz-asset-3d-svg {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  display: block;
+}
+
 .rate-card-head {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: max(6px, calc(0.45 * var(--u)));
+  gap: max(8px, calc(0.6 * var(--u)));
   min-width: 0;
 }
 
 .rate-card-identity {
   display: flex;
   align-items: center;
-  gap: max(6px, calc(0.48 * var(--u)));
+  gap: max(8px, calc(0.58 * var(--u)));
   min-width: 0;
 }
 
+.rate-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: max(7px, calc(0.52 * var(--u)));
+  flex-shrink: 0;
+}
+
 .rate-icon {
-  width: max(16px, calc(1.25 * var(--u)));
-  height: max(16px, calc(1.25 * var(--u)));
+  width: max(22px, calc(1.65 * var(--u)));
+  height: max(22px, calc(1.65 * var(--u)));
   color: var(--board-gold-strong);
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  opacity: 0.94;
+  opacity: 0.96;
+}
+
+.side-card .rate-icon {
+  width: max(19px, calc(1.42 * var(--u)));
+  height: max(19px, calc(1.42 * var(--u)));
 }
 
 .fz-asset-svg {
@@ -552,7 +613,7 @@ html[data-theme="light"] .masthead-logo {
 
 .rate-label {
   margin: 0;
-  font-size: calc(max(11.5px, calc(0.92 * var(--u))) * var(--board-main-scale));
+  font-size: calc(max(14px, calc(1.18 * var(--u))) * var(--board-main-scale));
   font-weight: 700;
   color: var(--board-ink);
   white-space: nowrap;
@@ -561,7 +622,7 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .rate-meta-unit {
-  font-size: max(9.5px, calc(0.62 * var(--u)));
+  font-size: max(11px, calc(0.76 * var(--u)));
   font-weight: 500;
   color: var(--board-subtle);
   white-space: nowrap;
@@ -569,27 +630,29 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .rate-quotes {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: max(8px, calc(0.62 * var(--u)));
-  padding-top: max(5px, calc(0.42 * var(--u)));
+  gap: max(10px, calc(0.78 * var(--u)));
+  padding-top: max(8px, calc(0.62 * var(--u)));
   border-top: 1px solid var(--board-line-subtle);
 }
 
 .rate-quote-col {
   display: flex;
   flex-direction: column;
-  gap: max(2px, calc(0.14 * var(--u)));
+  gap: max(3px, calc(0.22 * var(--u)));
   min-width: 0;
 }
 
 .rate-quote-col:last-child {
-  padding-inline-start: max(8px, calc(0.62 * var(--u)));
+  padding-inline-start: max(10px, calc(0.78 * var(--u)));
   border-inline-start: 1px solid var(--board-line-subtle);
 }
 
 .quote-kind {
-  font-size: max(9.5px, calc(0.62 * var(--u)));
+  font-size: max(11px, calc(0.76 * var(--u)));
   font-weight: 600;
 }
 
@@ -602,9 +665,9 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .quote-price {
-  font-size: calc(max(13px, calc(1.18 * var(--u))) * var(--board-main-scale));
+  font-size: calc(max(17px, calc(1.56 * var(--u))) * var(--board-main-scale));
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.18;
   letter-spacing: -0.01em;
   color: var(--board-ink);
   white-space: nowrap;
@@ -621,49 +684,113 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .quote-price.is-missing {
-  font-size: max(11px, calc(0.76 * var(--u)));
+  font-size: max(12.5px, calc(0.88 * var(--u)));
   font-weight: 500;
   color: var(--board-subtle);
 }
 
 /* Single Price Layout inside Card */
 .rate-single {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: max(8px, calc(0.62 * var(--u)));
-  padding-top: max(5px, calc(0.42 * var(--u)));
+  gap: max(10px, calc(0.72 * var(--u)));
+  padding-top: max(8px, calc(0.62 * var(--u)));
   border-top: 1px solid var(--board-line-subtle);
   min-width: 0;
 }
 
 .rate-single-price {
-  font-size: calc(max(15px, calc(1.42 * var(--u))) * var(--board-main-scale));
+  font-size: calc(max(20px, calc(1.82 * var(--u))) * var(--board-main-scale));
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.14;
   color: var(--board-gold-strong);
   white-space: nowrap;
   min-width: 0;
   flex: 1 1 auto;
 }
 
+/* Glowing Rate-Change Mini-Card */
 .rate-trend {
-  font-size: max(10px, calc(0.7 * var(--u)));
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: max(4px, calc(0.28 * var(--u)));
+  padding: max(4px, calc(0.26 * var(--u))) max(9px, calc(0.62 * var(--u)));
+  border-radius: max(7px, calc(0.46 * var(--u)));
+  font-size: max(12px, calc(0.82 * var(--u)));
+  font-weight: 800;
+  line-height: 1.15;
   white-space: nowrap;
   flex-shrink: 0;
+  border: 1px solid transparent;
+  letter-spacing: 0.01em;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: box-shadow 240ms var(--board-ease), border-color 240ms var(--board-ease), transform 240ms var(--board-ease);
+}
+
+.side-card .rate-trend {
+  padding: max(3px, calc(0.2 * var(--u))) max(7px, calc(0.48 * var(--u)));
+  font-size: max(11px, calc(0.72 * var(--u)));
+  border-radius: max(6px, calc(0.38 * var(--u)));
+}
+
+.rate-trend-arrow {
+  font-size: 0.78em;
+  line-height: 1;
+}
+
+.rate-trend-value {
+  display: inline-block;
+  unicode-bidi: isolate;
 }
 
 .rate-trend.up {
-  color: var(--board-sell);
+  color: #EAF7E1;
+  background: linear-gradient(135deg, rgba(164, 198, 144, 0.24), rgba(74, 107, 59, 0.36));
+  border-color: rgba(164, 198, 144, 0.72);
+  box-shadow: 0 0 18px rgba(164, 198, 144, 0.38), 0 0 6px rgba(164, 198, 144, 0.28), inset 0 1px 0 rgba(248, 242, 231, 0.26);
+  text-shadow: 0 0 10px rgba(164, 198, 144, 0.5);
 }
 
 .rate-trend.down {
-  color: var(--board-buy);
+  color: #FDE5E9;
+  background: linear-gradient(135deg, rgba(212, 119, 134, 0.26), rgba(125, 32, 50, 0.4));
+  border-color: rgba(212, 119, 134, 0.76);
+  box-shadow: 0 0 18px rgba(212, 119, 134, 0.4), 0 0 6px rgba(212, 119, 134, 0.3), inset 0 1px 0 rgba(248, 242, 231, 0.24);
+  text-shadow: 0 0 10px rgba(212, 119, 134, 0.52);
 }
 
 .rate-trend.flat {
-  color: var(--board-subtle);
+  color: #EFE5D3;
+  background: linear-gradient(135deg, rgba(197, 168, 117, 0.16), rgba(110, 80, 62, 0.24));
+  border-color: rgba(197, 168, 117, 0.45);
+  box-shadow: 0 0 14px rgba(197, 168, 117, 0.2), inset 0 1px 0 rgba(248, 242, 231, 0.16);
+}
+
+html[data-theme="light"] .rate-trend.up {
+  color: #26481B;
+  background: linear-gradient(135deg, rgba(164, 198, 144, 0.36), rgba(116, 158, 96, 0.28));
+  border-color: rgba(74, 107, 59, 0.62);
+  box-shadow: 0 0 16px rgba(74, 107, 59, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  text-shadow: none;
+}
+
+html[data-theme="light"] .rate-trend.down {
+  color: #6B1324;
+  background: linear-gradient(135deg, rgba(212, 119, 134, 0.34), rgba(182, 74, 92, 0.24));
+  border-color: rgba(125, 32, 50, 0.58);
+  box-shadow: 0 0 16px rgba(125, 32, 50, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  text-shadow: none;
+}
+
+html[data-theme="light"] .rate-trend.flat {
+  color: #4D392B;
+  background: rgba(138, 108, 60, 0.16);
+  border-color: rgba(138, 108, 60, 0.42);
+  box-shadow: 0 0 12px rgba(138, 108, 60, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
 /* Side Panel: Global Markets & Currencies 3D Glass Queue Ledger */
@@ -690,7 +817,7 @@ html[data-theme="light"] .masthead-logo {
 .side-cards-list {
   display: flex;
   flex-direction: column;
-  gap: max(6px, calc(0.55 * var(--u)));
+  gap: max(9px, calc(0.72 * var(--u)));
   transform-style: preserve-3d;
 }
 
@@ -698,16 +825,18 @@ html[data-theme="light"] .masthead-logo {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: max(3px, calc(0.3 * var(--u)));
-  padding: max(7px, calc(0.48 * var(--u))) max(10px, calc(0.78 * var(--u)));
-  line-height: 1.28;
+  justify-content: space-between;
+  gap: max(6px, calc(0.46 * var(--u)));
+  min-height: max(98px, calc(5.9 * var(--u)));
+  padding: max(10px, calc(0.76 * var(--u))) max(12px, calc(1.04 * var(--u)));
+  line-height: 1.3;
   background:
     radial-gradient(280px circle at var(--mx, 50%) var(--my, 15%), rgba(197, 168, 117, 0.12), transparent 60%),
     var(--board-surface);
   -webkit-backdrop-filter: blur(16px) saturate(120%);
   backdrop-filter: blur(16px) saturate(120%);
   border: 1px solid var(--board-line-subtle);
-  border-radius: max(8px, calc(0.62 * var(--u)));
+  border-radius: max(10px, calc(0.74 * var(--u)));
   box-shadow: var(--board-card-shadow), var(--board-inner-glow);
   overflow: hidden;
   transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(var(--tz, 0px));
@@ -778,6 +907,8 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .side-card-top {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -787,12 +918,19 @@ html[data-theme="light"] .masthead-logo {
 .side-card-title {
   display: flex;
   align-items: center;
-  gap: max(5px, calc(0.38 * var(--u)));
+  gap: max(6px, calc(0.44 * var(--u)));
   min-width: 0;
 }
 
+.side-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: max(6px, calc(0.42 * var(--u)));
+  flex-shrink: 0;
+}
+
 .side-card-name {
-  font-size: calc(max(11px, calc(0.84 * var(--u))) * var(--board-side-scale));
+  font-size: calc(max(13px, calc(1.04 * var(--u))) * var(--board-side-scale));
   font-weight: 700;
   color: var(--board-ink);
   white-space: nowrap;
@@ -801,17 +939,19 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .side-card-unit {
-  font-size: max(9px, calc(0.58 * var(--u)));
+  font-size: max(10.5px, calc(0.7 * var(--u)));
   color: var(--board-subtle);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .side-card-quotes {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: max(6px, calc(0.52 * var(--u)));
-  padding-top: max(4px, calc(0.36 * var(--u)));
+  gap: max(8px, calc(0.64 * var(--u)));
+  padding-top: max(6px, calc(0.48 * var(--u)));
   border-top: 1px solid var(--board-line-subtle);
 }
 
@@ -819,17 +959,17 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: max(1px, calc(0.1 * var(--u)));
+  gap: max(2px, calc(0.14 * var(--u)));
   min-width: 0;
 }
 
 .side-quote-item:last-child {
-  padding-inline-start: max(6px, calc(0.52 * var(--u)));
+  padding-inline-start: max(8px, calc(0.64 * var(--u)));
   border-inline-start: 1px solid var(--board-line-subtle);
 }
 
 .side-quote-label {
-  font-size: max(9px, calc(0.58 * var(--u)));
+  font-size: max(10.5px, calc(0.7 * var(--u)));
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -843,7 +983,7 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .side-quote-value {
-  font-size: calc(max(11.5px, calc(0.92 * var(--u))) * var(--board-side-scale));
+  font-size: calc(max(14.5px, calc(1.18 * var(--u))) * var(--board-side-scale));
   font-weight: 700;
   color: var(--board-ink);
   white-space: nowrap;
@@ -860,23 +1000,25 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .side-quote-value.is-missing {
-  font-size: max(10.5px, calc(0.66 * var(--u)));
+  font-size: max(11.5px, calc(0.76 * var(--u)));
   font-weight: 500;
   color: var(--board-subtle);
 }
 
 .side-single {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: max(6px, calc(0.42 * var(--u)));
-  padding-top: max(4px, calc(0.34 * var(--u)));
+  gap: max(8px, calc(0.52 * var(--u)));
+  padding-top: max(6px, calc(0.46 * var(--u)));
   border-top: 1px solid var(--board-line-subtle);
   min-width: 0;
 }
 
 .side-single-price {
-  font-size: calc(max(12.5px, calc(1.06 * var(--u))) * var(--board-side-scale));
+  font-size: calc(max(16px, calc(1.34 * var(--u))) * var(--board-side-scale));
   font-weight: 700;
   color: var(--board-gold-strong);
   white-space: nowrap;
@@ -886,16 +1028,18 @@ html[data-theme="light"] .masthead-logo {
 
 /* Intraday High / Low Range Hairline inside Board Cards */
 .card-range {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: max(5px, calc(0.42 * var(--u)));
-  padding-top: max(4px, calc(0.32 * var(--u)));
-  border-top: 1px solid rgba(159, 144, 130, 0.12);
+  gap: max(6px, calc(0.48 * var(--u)));
+  padding-top: max(5px, calc(0.4 * var(--u)));
+  border-top: 1px solid rgba(159, 144, 130, 0.14);
 }
 
 .card-range-bound {
-  font-size: max(8.5px, calc(0.52 * var(--u)));
+  font-size: max(10px, calc(0.64 * var(--u)));
   color: var(--board-subtle);
   line-height: 1;
   white-space: nowrap;
@@ -903,7 +1047,7 @@ html[data-theme="light"] .masthead-logo {
 
 .card-range-track {
   position: relative;
-  height: max(2.5px, calc(0.16 * var(--u)));
+  height: max(3.5px, calc(0.22 * var(--u)));
   border-radius: 999px;
   background-color: rgba(159, 144, 130, 0.22);
 }
@@ -1218,7 +1362,7 @@ html[data-theme="light"] .board-controls {
 /* Tablet & Mobile Responsive Unfolding */
 @media (max-width: 1023px), (max-height: 619px) {
   :root {
-    --u: 14px;
+    --u: 15.5px;
     --board-shell-pad-x: clamp(12px, 2.5vw, 22px);
     --board-gap: var(--board-gap-px, 16px);
     --board-ticker-size: var(--board-ticker-px, 15px);

@@ -26,7 +26,7 @@ const DEFAULT_SETTINGS = {
   showDate: true, showUpdate: true, showLogo: true,
   bgColor: '#1b120e', goldColor: '#c5a875', textColor: '#f8f2e7', mutedColor: '#9f9082',
   watermarkOpacity: 8, exportScale: 1, showFrame: true, showAttribution: true, liveEnabled: true,
-  schemaVersion: 6,
+  schemaVersion: 7,
   // Approximate 2026-11-18 market snapshot; paired quotes assume lower=buy, higher=sell.
   sideRates: [
     { id:'usd-side', label:'دلار', source:'usd', unit:'تومان', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0.8935, sellSpreadPercent:-0.8935 },
@@ -36,7 +36,7 @@ const DEFAULT_SETTINGS = {
     { id:'oil-side', label:'نفت برنت', source:'oil', unit:'دلار / بشکه', manualValue:'', visible:true, showTwoPrices:true, buySpreadPercent:0, sellSpreadPercent:0 }
   ],
   boardConfig: {
-    refreshSeconds:30, showMainRates:true, showSideRates:true, showMarketStatus:true, showClock:true,
+    refreshSeconds:1, showMainRates:true, showSideRates:true, showMarketStatus:true, showClock:true,
     showJalaliDate:true, showGregorianDate:true, showGoldChart:true, showContacts:true, showFooter:true,
     showNewsTicker:true, tickerLabel:'آخرین اخبار اقتصادی',
     newsFeedUrl:'https://news.google.com/rss/search?q=%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF+%D8%A7%DB%8C%D8%B1%D8%A7%D9%86+OR+%D8%B7%D9%84%D8%A7+OR+%D8%A7%D8%B1%D8%B2+OR+%D9%86%D9%81%D8%AA&hl=fa&gl=IR&ceid=IR:fa',
@@ -127,6 +127,9 @@ function normalizeSettings(raw = {}) {
     row.sellSpreadPercent = Number(row.sellSpreadPercent) || 0;
   }
   merged.boardConfig = { ...clone(DEFAULT_SETTINGS.boardConfig), ...(merged.boardConfig || {}) };
+  if ((!raw.schemaVersion || Number(raw.schemaVersion) < 7) && (Number(merged.boardConfig.refreshSeconds) === 30 || Number(merged.boardConfig.refreshSeconds) === 10)) {
+    merged.boardConfig.refreshSeconds = 1;
+  }
   merged.storyConfig = { ...clone(DEFAULT_SETTINGS.storyConfig), ...(merged.storyConfig || {}) };
   return merged;
 }
@@ -478,6 +481,18 @@ function drawAssetIcon(ctx,type,x,y,size=18){
   if(window.FarzinAssetIcons)window.FarzinAssetIcons.draw(ctx,type,x,y,iconSize,primary);
 }
 function assetIcon(item){return window.FarzinAssetIcons?window.FarzinAssetIcons.infer(item):'generic';}
+function drawStoryCardBackdropIcon(ctx,row,x,y,w,h,featured=false){
+  if(!window.FarzinAssetIcons||typeof window.FarzinAssetIcons.drawSide3D!=='function')return;
+  const primary=settings.goldColor||'#c5a875';
+  const iconSize=Math.max(50,Math.min(w*0.28,h*1.24));
+  const cx=x+Math.max(iconSize*0.44,w*0.12);
+  const cy=y+h*0.54;
+  ctx.save();
+  roundRect(ctx,x+1.5,y+1.5,Math.max(0,w-3),Math.max(0,h-3),20.5);
+  ctx.clip();
+  window.FarzinAssetIcons.drawSide3D(ctx,assetIcon(row),cx,cy,iconSize,primary,{opacity:featured?0.3:0.24});
+  ctx.restore();
+}
 function historySeries() {
   const raw = historyPayload?.points || historyPayload?.history || historyPayload?.data || [];
   const range = ({'1d':86400000,'30d':30*86400000,'90d':90*86400000,'1y':365*86400000})[settings.boardConfig?.chartRange || '1d'] || 86400000;
@@ -767,13 +782,13 @@ function drawStory(canvas, scale) {
     const badgeY=y+Math.max(6,Math.min(10,Math.round(h*0.10)));
     const maxBadgeW=Math.max(54,Math.min(92,Math.floor(w*0.23)));
     drawCardSurface(ctx,x,y,w,h,featured);
-    drawAssetIcon(ctx,assetIcon(row),x+22,y+Math.min(18,h*.22),Math.min(17,h*.22));
+    drawStoryCardBackdropIcon(ctx,row,x,y,w,h,featured);
     if(single){
-      const badgeW=hasTrendData?drawStoryTrendBadge(ctx,x+42,badgeY,badgeH,maxBadgeW,data.change_pct,data.direction,'left'):0;
-      drawFitText(ctx,row.label||'',x+w-20,y+Math.min(21,h*.29),Math.min(19,h*.24),main,'right',700,Math.max(80,w-(badgeW?70+badgeW:52)),12);
+      const badgeW=hasTrendData?drawStoryTrendBadge(ctx,x+18,badgeY,badgeH,maxBadgeW,data.change_pct,data.direction,'left'):0;
+      drawFitText(ctx,row.label||'',x+w-20,y+Math.min(21,h*.29),Math.min(19,h*.24),main,'right',700,Math.max(80,w-(badgeW?46+badgeW:40)),12);
     } else {
-      const badgeW=hasTrendData?drawStoryTrendBadge(ctx,x+w-22,badgeY,badgeH,maxBadgeW,data.change_pct,data.direction,'right'):0;
-      const maxLabelW=badgeW?Math.max(84,w-2*Math.max(46,badgeW+32)):w-64;
+      const badgeW=hasTrendData?drawStoryTrendBadge(ctx,x+w-20,badgeY,badgeH,maxBadgeW,data.change_pct,data.direction,'right'):0;
+      const maxLabelW=badgeW?Math.max(96,w-2*Math.max(36,badgeW+28)):w-44;
       drawFitText(ctx,row.label||'',x+w/2,y+Math.min(21,h*.29),Math.min(19,h*.24),main,'center',700,maxLabelW,11);
     }
     if(single){
@@ -812,8 +827,16 @@ function drawStory(canvas, scale) {
   const contactCards=(settings.contactCards||[]).filter(card=>card.visible!==false&&String(card.value||'').trim());
   let contentBottom=chartBottom;
    if(cfg.showContacts!==false&&contactCards.length){const y=Math.max(chartBottom+22,1330),x0=70,w=940,gap=12,cols=Math.min(3,contactCards.length),cw=(w-gap*(cols-1))/cols,availableH=Math.max(0,1585-y),maxRows=Math.floor((availableH+gap)/56),shown=contactCards.slice(0,cols*maxRows),rows=Math.ceil(shown.length/cols),ch=rows?Math.min(100,Math.floor((availableH-gap*(rows-1))/rows)):0;shown.forEach((card,i)=>{const x=x0+(i%cols)*(cw+gap),cy=y+Math.floor(i/cols)*(ch+gap),mid=cy+ch/2;drawGlassPanel(ctx,x,cy,cw,ch,16,gold,muted,false);drawFitText(ctx,card.title||'',x+cw/2,mid-7,15,muted,'center',600,cw-28,10);drawFitText(ctx,card.value||'',x+cw/2,mid+17,20,main,'center',700,cw-28,11);});if(rows)contentBottom=y+rows*ch+(rows-1)*gap;}
-  const footers=(settings.footerLines||[]).filter(line=>line.visible!==false&&String(line.text||'').trim());const footerStart=Math.max(1620,contentBottom+32),footerCount=Math.max(0,Math.min(4,Math.floor((1830-footerStart)/27)));if(cfg.showFooter!==false&&footers.length){footers.slice(0,footerCount).forEach((line,i)=>drawFitText(ctx,line.text,540,footerStart+i*27,17,muted,'center',500,920,11));}
-  drawText(ctx,'تمام نرخ‌ها از TGJU · tgju.org',540,1854,18,gold,'center',700,930,13);drawText(ctx,'FARZIN COIN · منبع داده: شبکه اطلاع‌رسانی طلا و ارز',540,1885,15,muted,'center',500,960,11);
+  const footers=(settings.footerLines||[]).filter(line=>line.visible!==false&&String(line.text||'').trim());const footerStart=Math.max(1620,contentBottom+32),footerLineH=30,footerBottom=1858,footerCount=Math.max(0,Math.min(5,Math.floor((footerBottom-footerStart)/footerLineH)+1));
+  if(cfg.showFooter!==false&&footers.length&&footerCount>0){
+    const shownFooters=footers.slice(0,footerCount);
+    const renderY0=Math.max(footerStart,footerBottom-(shownFooters.length-1)*footerLineH);
+    ctx.save();
+    const fRule=ctx.createLinearGradient(160,0,920,0);fRule.addColorStop(0,'rgba(159,144,130,0)');fRule.addColorStop(0.5,rgbaHex(gold,0.38));fRule.addColorStop(1,'rgba(159,144,130,0)');
+    ctx.fillStyle=fRule;ctx.fillRect(160,renderY0-28,760,1);
+    ctx.restore();
+    shownFooters.forEach((line,i)=>drawFitText(ctx,line.text,540,renderY0+i*footerLineH,i===0?19:17,i===0?gold:muted,'center',i===0?700:500,920,12));
+  }
 }
 
 function renderStory() {
@@ -880,8 +903,8 @@ async function pollDashboard() {
   } finally {
     dashboardPollBusy = false;
     clearTimeout(dashboardPollTimer);
-    const seconds = Math.max(20, Number(settings.boardConfig?.refreshSeconds || 30));
-    const delay = latestPayload?.hasPrices ? seconds * 1000 : 2000;
+    const seconds = Math.max(1, Number(settings.boardConfig?.refreshSeconds || 1));
+    const delay = latestPayload?.hasPrices ? seconds * 1000 : 1000;
     dashboardPollTimer = setTimeout(pollDashboard, delay);
   }
 }
@@ -904,7 +927,7 @@ async function refreshNow() {
 }
 $('refreshNow').addEventListener('click', refreshNow);
 
-function collectSettings() { settings.schemaVersion = 6; return clone(settings); }
+function collectSettings() { settings.schemaVersion = 7; return clone(settings); }
 async function saveAll() {
   $('saveAll').disabled = true; $('saveAll').textContent = 'در حال ذخیره...';
   try {
@@ -1004,7 +1027,7 @@ async function init() {
   loadSettingsIntoForm();
   await loadInitialPrices();
   startLive();
-  dashboardPollTimer=setTimeout(pollDashboard, latestPayload?.hasPrices ? Math.max(20,Number(settings.boardConfig?.refreshSeconds||30))*1000 : 1500);
+  dashboardPollTimer=setTimeout(pollDashboard, latestPayload?.hasPrices ? Math.max(1,Number(settings.boardConfig?.refreshSeconds||1))*1000 : 1000);
   setInterval(renderStory, 1000);
 }
 init();

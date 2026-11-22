@@ -45,7 +45,7 @@ const DEFAULTS = {
   sections: [],
   sideRates: [],
   boardConfig: {
-    refreshSeconds: 30,
+    refreshSeconds: 1,
     showMainRates: true,
     showSideRates: true,
     showMarketStatus: true,
@@ -81,7 +81,7 @@ let newsError = '';
 let logoVersion = null;
 let pollInProgress = false;
 let lastNewsFetch = 0;
-let nextRefreshAt = Date.now() + 30000;
+let nextRefreshAt = Date.now() + 1000;
 let tickerOffset = 0;
 let tickerLastFrameAt = 0;
 let cardScrollOffset = 0;
@@ -176,6 +176,9 @@ function sourceTime(v) {
 function normalize(raw) {
   const s = { ...cloneConfig(DEFAULTS), ...(raw || {}) };
   s.boardConfig = { ...cloneConfig(DEFAULTS.boardConfig), ...(s.boardConfig || {}) };
+  if ((!raw?.schemaVersion || Number(raw.schemaVersion) < 7) && (Number(s.boardConfig.refreshSeconds) === 30 || Number(s.boardConfig.refreshSeconds) === 10)) {
+    s.boardConfig.refreshSeconds = 1;
+  }
   if (!Array.isArray(s.boardConfig.footerLines)) s.boardConfig.footerLines = cloneConfig(DEFAULTS.boardConfig.footerLines);
   if (!raw?.schemaVersion || Number(raw.schemaVersion) < 4) {
     s.sections = [{
@@ -256,18 +259,41 @@ function assetIconSvg(item) {
   return '';
 }
 
+function assetIconBackdropSvg(item) {
+  if (window.FarzinAssetIcons && typeof window.FarzinAssetIcons.svgSide3D === 'function') {
+    return window.FarzinAssetIcons.svgSide3D(assetIcon(item));
+  }
+  return '';
+}
+
 function quotePrices(rate, card = {}) {
   const quotes = typeof window.FarzinQuotePrices === 'function' ? window.FarzinQuotePrices(rate?.price, card) : null;
   return quotes ? { buy: faNum(quotes.buy), sell: faNum(quotes.sell), missing: false } : { buy: 'در انتظار نرخ', sell: 'در انتظار نرخ', missing: true };
 }
 
 function trendMeta(rate) {
-  const hasPct = rate?.change_pct !== null && rate?.change_pct !== undefined && Number.isFinite(Number(rate.change_pct));
-  if (!hasPct) return null;
-  const val = Number(rate.change_pct);
-  const dir = val > 0.0001 ? 'up' : val < -0.0001 ? 'down' : 'flat';
-  const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '—';
-  return { dir, label: `${arrow} ${faNum(Math.abs(val))}٪` };
+  const hasPct = rate?.change_pct !== null && rate?.change_pct !== undefined && rate?.change_pct !== '' && Number.isFinite(Number(rate.change_pct));
+  if (hasPct) {
+    const val = Number(rate.change_pct);
+    const dir = val > 0.0001 ? 'up' : val < -0.0001 ? 'down' : 'flat';
+    const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '—';
+    const sign = dir === 'up' ? '+' : dir === 'down' ? '-' : '';
+    const value = `${sign}${faNum(Math.abs(val))}٪`;
+    return { dir, arrow, value, label: `${arrow} ${value}` };
+  }
+  if (rate?.direction === 'up' || rate?.direction === 'down') {
+    const dir = rate.direction;
+    const arrow = dir === 'up' ? '▲' : '▼';
+    const value = dir === 'up' ? 'صعودی' : 'نزولی';
+    return { dir, arrow, value, label: `${arrow} ${value}` };
+  }
+  return null;
+}
+
+function renderTrendGlowCardHtml(rate) {
+  const trend = trendMeta(rate);
+  if (!trend) return '';
+  return `<span class="rate-trend rate-trend-glow fz-tabular ${trend.dir}" title="میزان تغییر نرخ" aria-label="میزان تغییر نرخ ${esc(trend.label)}"><span class="rate-trend-arrow" aria-hidden="true">${trend.arrow}</span><span class="rate-trend-value" dir="ltr">${esc(trend.value)}</span></span>`;
 }
 
 function rangeMeta(rate) {
@@ -314,16 +340,16 @@ function renderMainCardHtml(row) {
   const tickClass = cardTickClass(row);
   const keyAttr = esc(cardTickKey(row));
   const iconSvg = assetIconSvg(row);
+  const backdropSvg = assetIconBackdropSvg(row);
+  const trendGlowHtml = renderTrendGlowCardHtml(rate);
 
   let bodyHtml = '';
   if (row.showTwoPrices === false) {
     const missing = rate?.price === '' || rate?.price === undefined || rate?.price === null;
     const price = missing ? 'در انتظار نرخ' : faNum(rate.price);
-    const trend = trendMeta(rate);
     bodyHtml = `
       <div class="rate-single">
         <span class="rate-single-price fz-tabular${missing ? ' is-missing' : ''}">${esc(price)}</span>
-        ${trend ? `<span class="rate-trend fz-tabular ${trend.dir}">${esc(trend.label)}</span>` : ''}
       </div>`;
   } else {
     const prices = quotePrices(rate, row);
@@ -343,12 +369,16 @@ function renderMainCardHtml(row) {
 
   return `
     <article class="rate-card${featuredClass}${tickClass}" data-card-id="${keyAttr}">
+      ${backdropSvg ? `<div class="card-bg-emblem" aria-hidden="true">${backdropSvg}</div>` : ''}
       <div class="rate-card-head">
         <div class="rate-card-identity">
           ${iconSvg ? `<span class="rate-icon">${iconSvg}</span>` : ''}
           <h3 class="rate-label">${esc(row.label || '')}</h3>
         </div>
-        ${unit ? `<span class="rate-meta-unit">${esc(unit)}</span>` : ''}
+        <div class="rate-card-meta">
+          ${trendGlowHtml}
+          ${unit ? `<span class="rate-meta-unit">${esc(unit)}</span>` : ''}
+        </div>
       </div>
       ${bodyHtml}
       ${renderRangeHtml(rate)}
@@ -362,16 +392,16 @@ function renderSideCardHtml(item, extraClass = '') {
   const animClass = extraClass ? ` ${extraClass}` : '';
   const keyAttr = esc(cardTickKey(item));
   const iconSvg = assetIconSvg(item);
+  const backdropSvg = assetIconBackdropSvg(item);
+  const trendGlowHtml = renderTrendGlowCardHtml(rate);
 
   let bodyHtml = '';
   if (item.showTwoPrices === false) {
     const missing = rate?.price === '' || rate?.price === undefined || rate?.price === null;
     const price = missing ? 'در انتظار نرخ' : faNum(rate.price);
-    const trend = trendMeta(rate);
     bodyHtml = `
       <div class="side-single">
         <span class="side-single-price fz-tabular${missing ? ' is-missing' : ''}">${esc(price)}</span>
-        ${trend ? `<span class="rate-trend fz-tabular ${trend.dir}">${esc(trend.label)}</span>` : ''}
       </div>`;
   } else {
     const prices = quotePrices(rate, item);
@@ -391,12 +421,16 @@ function renderSideCardHtml(item, extraClass = '') {
 
   return `
     <article class="side-card${tickClass}${animClass}" data-card-id="${keyAttr}">
+      ${backdropSvg ? `<div class="card-bg-emblem" aria-hidden="true">${backdropSvg}</div>` : ''}
       <div class="side-card-top">
         <div class="side-card-title">
           ${iconSvg ? `<span class="rate-icon">${iconSvg}</span>` : ''}
           <span class="side-card-name">${esc(item.label || '')}</span>
         </div>
-        ${unit ? `<span class="side-card-unit">${esc(unit)}</span>` : ''}
+        <div class="side-card-meta">
+          ${trendGlowHtml}
+          ${unit ? `<span class="side-card-unit">${esc(unit)}</span>` : ''}
+        </div>
       </div>
       ${bodyHtml}
       ${renderRangeHtml(rate)}
@@ -941,10 +975,12 @@ function scheduleNews() {
 async function refreshAll() {
   if (pollInProgress) return;
   pollInProgress = true;
-  if (!hasUsableRates(latestPayload)) connectionState = 'connecting';
-  latestError = 'در حال دریافت نرخ‌ها از TGJU…';
-  nextRefreshAt = Date.now() + 2000;
-  render();
+  if (!hasUsableRates(latestPayload)) {
+    connectionState = 'connecting';
+    latestError = 'در حال دریافت نرخ‌ها از TGJU…';
+    render();
+  }
+  nextRefreshAt = Date.now() + 1000;
   let retrySoon = false;
   try {
     void refreshLogo();
@@ -1035,8 +1071,8 @@ async function refreshAll() {
     retrySoon = true;
   } finally {
     pollInProgress = false;
-    const interval = Math.max(20, Math.min(300, Number(settings.boardConfig?.refreshSeconds) || 30)) * 1000;
-    const retryDelay = retrySoon ? 8000 : interval;
+    const interval = Math.max(1, Math.min(300, Number(settings.boardConfig?.refreshSeconds) || 1)) * 1000;
+    const retryDelay = retrySoon ? 2000 : interval;
     nextRefreshAt = Date.now() + retryDelay;
     updateChronosAndStatus();
     scheduleRefresh(retryDelay);
@@ -1130,7 +1166,7 @@ controlHideTimer = setTimeout(() => {
 
 function scheduleRefresh(delayMs) {
   clearTimeout(refreshTimer);
-  const seconds = Math.max(20, Math.min(300, Number(settings.boardConfig?.refreshSeconds) || 30));
+  const seconds = Math.max(1, Math.min(300, Number(settings.boardConfig?.refreshSeconds) || 1));
   refreshTimer = setTimeout(() => refreshAll(), Number.isFinite(delayMs) ? delayMs : seconds * 1000);
 }
 

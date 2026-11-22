@@ -32,7 +32,7 @@ const DEFAULT_SIDE = [
   {id:'oil-side',label:'نفت برنت',source:'oil',unit:'دلار / بشکه',manualValue:'',visible:true,showTwoPrices:true,buySpreadPercent:0,sellSpreadPercent:0}
 ];
 const BOARD_DEFAULTS = {
-  refreshSeconds:30, showMainRates:true, showSideRates:true, showMarketStatus:true, showClock:true,
+  refreshSeconds:1, showMainRates:true, showSideRates:true, showMarketStatus:true, showClock:true,
   showJalaliDate:true, showGregorianDate:true, showFooter:true,
   showNewsTicker:true, tickerLabel:'تازه‌ترین اخبار جهان', newsFeedUrl:DEFAULT_FEED, newsRefreshSeconds:180,
   tickerSpeed:65, tickerFontSize:17, mainColumns:2, sidePanelPercent:27, mainCardGap:18, mainFontScale:1.1, sideFontScale:1.1, cardScrollSpeed:32, tgjuWidgetCode:'', footerLines:[{id:'board-footer-quote',text:'زر، جلوه‌ای از زیبایی‌ست؛ اعتماد، ماندگارترین دارایی‌ست.',visible:true}]
@@ -65,6 +65,7 @@ function baseSettings(raw){
   }
   s.sideRates=Array.isArray(s.sideRates)?s.sideRates:structuredClone(DEFAULT_SIDE);
   s.boardConfig={...structuredClone(BOARD_DEFAULTS),...(s.boardConfig||{})};
+  if((!s.schemaVersion||Number(s.schemaVersion)<7)&&(Number(s.boardConfig.refreshSeconds)===30||Number(s.boardConfig.refreshSeconds)===10)){s.boardConfig.refreshSeconds=1;}
   for(const row of [...s.sections.flatMap(section=>section.rows||[]),...s.sideRates]){
     row.showTwoPrices=row.showTwoPrices??s.boardConfig.showTwoPrices;
     row.buySpreadPercent=row.buySpreadPercent??s.boardConfig.buySpreadPercent;
@@ -168,7 +169,7 @@ function collect(){
   document.querySelectorAll('[data-board]').forEach(el=>{settings.boardConfig[el.dataset.board]=el.type==='checkbox'?el.checked:(el.type==='number'?Number(el.value):el.value);});
   document.querySelectorAll('[data-story]').forEach(el=>{settings.storyConfig[el.dataset.story]=el.checked;});
   document.querySelectorAll('[data-global]').forEach(el=>{settings[el.dataset.global]=el.type==='checkbox'?el.checked:(el.type==='number'?Number(el.value):el.value);});
-  settings.schemaVersion=6;
+  settings.schemaVersion=7;
 }
 function toast(message){const t=$('toast');t.textContent=message;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),3500);}
 async function loadLiveAssetOptions(){try{const response=await fetch('/api/assets',{cache:'no-store'});const data=await response.json();LIVE_ASSET_OPTIONS=(data.assets||[]).map(item=>[item.symbol,`${item.label||item.symbol} · فید زنده TGJU`]);if(settings){renderMainRows();renderSideRows();}}catch{LIVE_ASSET_OPTIONS=[];}}

@@ -129,6 +129,13 @@ function testBoardCardLayout() {
 
   assert.match(source, /renderMainCardHtml\(/, 'main rate desk should render semantic HTML cards');
   assert.match(source, /renderSideCardHtml\(/, 'side ledger should render semantic HTML cards');
+  assert.match(source, /renderTrendGlowCardHtml\(/, 'board cards should render a dedicated glowing rate-change card');
+  assert.match(source, /rate-trend-glow/, 'rate-change card should apply the luminous glow class');
+  assert.match(source, /assetIconBackdropSvg\(/, 'board cards should render faded 3D side-view background emblems');
+  assert.match(cssSource, /\.card-bg-emblem[\s\S]*mask-image:/, 'board card background emblems should fade smoothly');
+  assert.match(cssSource, /\.rate-trend\.up[\s\S]*box-shadow:[\s\S]*\.rate-trend\.down[\s\S]*box-shadow:/, 'rate-change card should apply distinct up and down luminous glow shadows');
+  assert.match(cssSource, /\.rate-card\s*\{[\s\S]*min-height:\s*max\(126px/, 'main board cards should use enlarged dimensions');
+  assert.match(cssSource, /\.side-card\s*\{[\s\S]*min-height:\s*max\(98px/, 'side board cards should use enlarged dimensions');
   assert.match(source, /class="quote-kind is-buy">خرید ما<\/span>/, 'cards should label the buy quote');
   assert.match(source, /class="quote-kind is-sell">فروش ما<\/span>/, 'cards should label the sell quote');
   assert.match(source, /row\.showTwoPrices === false/, 'single-price mode should be configured independently on each rate card');
@@ -236,13 +243,16 @@ function testStoryLongTextFit() {
   assert.match(source, /const col=i%2,row=Math\.floor\(i\/2\)/, 'story header cards should use a two-column grid');
   assert.doesNotMatch(source, /gregorianDate|میلادی \$\{/, 'story output should omit Gregorian dates');
   assert.match(source, /drawStoryPrice\(ctx,value,unit,/, 'story single-price cards should place the unit beside the value');
-  assert.match(source, /drawAssetIcon\(ctx,assetIcon\(row\),x\+22,y\+Math\.min\(18,h\*\.22\)/, 'story cards should retain their standard leading asset icon');
+  assert.match(source, /drawStoryCardBackdropIcon\(ctx,row,x,y,w,h,featured\)/, 'story cards should draw faded 3D side-view background icons');
+  assert.doesNotMatch(source.match(/const drawRateCard=\(row,x,y,w,h\)=>\{[\s\S]*?\n\s*\};/)?.[0] || '', /drawAssetIcon\(/, 'story cards should omit foreground symbol icons and keep only the background 3D emblem');
   assert.match(source, /drawFitText\(ctx,row\.label\|\|'',x\+w\/2,y\+Math\.min\(21,h\*\.29\)/, 'story card labels should remain centered');
   assert.match(source, /mid=cy\+ch\/2/, 'story info cards should center their content vertically');
   assert.match(source, /brandW\+gap\+size,left=\(width-groupW\)\/2/, 'story header brand and logo group should be centered with equal frame margins');
   assert.match(source, /valueY=y\+h\*\.84/, 'story buy and sell values should remain within compact market cards');
   assert.match(source, /availableH=Math\.max\(0,1585-y\)/, 'story contact cards should be restricted to the reserved contact area');
   assert.match(source, /const footerStart=Math\.max\(1620,contentBottom\+32\)/, 'story footer should remain below contacts rather than moving over them');
+  assert.match(source, /footerBottom=1858/, 'story custom footer lines should anchor lower at the bottom of the story');
+  assert.doesNotMatch(source, /تمام نرخ‌ها از TGJU|منبع داده: شبکه اطلاع‌رسانی/, 'story output should omit hardcoded TGJU source attribution footer lines');
   const declaration = source.match(/function drawFitText\([\s\S]*?\n\}/)?.[0];
   assert.ok(declaration, 'story should provide a measured text fitting helper');
   const sandbox = {};
@@ -385,12 +395,42 @@ function testAssetCatalogAndIcons() {
   assert.ok(catalog.items.some(item => item.symbol === 'basemetal-aluminum'));
   assert.equal(window.FarzinAssetIcons.infer({ source:'crypto-bitcoin', label:'بیت کوین' }), 'bitcoin');
   assert.equal(window.FarzinAssetIcons.infer({ source:'crypto-tether', label:'تتر' }), 'tether');
+  assert.equal(window.FarzinAssetIcons.infer({ source:'abshodeh', label:'آبشده نقدی' }), 'gold');
+  assert.equal(window.FarzinAssetIcons.infer({ source:'ounce', label:'انس طلا' }), 'ounce');
+  assert.equal(window.FarzinAssetIcons.infer({ source:'price_omr', label:'ریال عمان' }), 'omr');
+  assert.equal(window.FarzinAssetIcons.infer({ source:'coin_full', label:'سکه امامی' }), 'coin');
+  assert.equal(window.FarzinAssetIcons.infer({ source:'oil', label:'نفت برنت' }), 'oil');
   let draws = 0;
   const ctx = new Proxy({ measureText:()=>({width:8}) }, { get(target,key){return key in target?target[key]:(()=>{});}, set(target,key,value){target[key]=value;return true;} });
-  window.FarzinAssetIcons.draw(ctx,'gold',0,0,18,'#d6b66b');
-  window.FarzinAssetIcons.draw(ctx,'bitcoin',0,0,18,'#d6b66b');
+  for (const iconType of ['gold', 'ounce', 'coin', 'silver', 'metal', 'oil', 'usd', 'omr', 'bitcoin', 'ethereum', 'stock', 'fund', 'bond', 'commodity', 'generic']) {
+    window.FarzinAssetIcons.draw(ctx, iconType, 0, 0, 20, '#d6b66b');
+    window.FarzinAssetIcons.drawSide3D(ctx, iconType, 0, 0, 64, '#d6b66b');
+    assert.match(window.FarzinAssetIcons.svg(iconType), /^<svg[\s\S]*<\/svg>$/, `${iconType} foreground SVG should render cleanly`);
+    assert.match(window.FarzinAssetIcons.svgSide3D(iconType), /^<svg[\s\S]*<\/svg>$/, `${iconType} 3D side SVG should render cleanly`);
+  }
+  assert.match(window.FarzinAssetIcons.svgSide3D('gold'), /999\.9/, 'gold 3D emblem should render a bullion gold bar');
+  assert.match(window.FarzinAssetIcons.svgSide3D('coin'), /<polygon[\s\S]*<circle/, 'coin 3D emblem should render a solid 3D minted gold coin');
+  assert.match(window.FarzinAssetIcons.svgSide3D('silver'), /Ag 999/, 'silver 3D emblem should render a silver ingot bar');
+  assert.match(window.FarzinAssetIcons.svgSide3D('usd'), /\$/, 'USD 3D emblem should render a banknote with dollar sign');
+  assert.match(window.FarzinAssetIcons.svgSide3D('omr'), /ر\.ع/, 'OMR 3D emblem should render an Oman Rial banknote');
+  assert.match(window.FarzinAssetIcons.svgSide3D('bitcoin'), /₿/);
+  for (const t of ['gold', 'ounce', 'coin', 'silver', 'metal', 'usd', 'bitcoin', 'ethereum', 'solana', 'stock', 'fund', 'bond', 'commodity', 'generic']) {
+    const svgOut = window.FarzinAssetIcons.svgSide3D(t);
+    assert.ok(!svgOut.includes('NaN') && !svgOut.includes('undefined'), `${t} 3D side SVG must not contain NaN/undefined`);
+    const polyPts = [...svgOut.replace(/<g transform=[\s\S]*?<\/g>/g, '').matchAll(/points="([^"]+)"/g)];
+    assert.ok(polyPts.length >= 3, `${t} 3D side SVG must render true 3D projected polygons`);
+    for (const m of polyPts) {
+      for (const pair of m[1].split(' ')) {
+        const [x, y] = pair.split(',').map(Number);
+        assert.ok(x >= 0 && x <= 120 && y >= 0 && y <= 100, `${t} 3D polygon vertex (${x},${y}) must fit inside 120x100 viewBox`);
+      }
+    }
+  }
   draws += 2;
   assert.equal(draws,2);
+
+  const serverSrc = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
+  assert.match(serverSrc, /const TGJU_POLL_MS = 1_000;/, 'server TGJU polling interval should be 1 second');
 }
 
 async function testServerRoutes() {
