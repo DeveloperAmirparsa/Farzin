@@ -58,12 +58,18 @@
   --board-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
   /* Dynamic Config-Driven Tokens */
+  --u: 14px;
+  --board-shell-pad-x: 16px;
   --board-cols: 2;
   --board-side-width: 28%;
-  --board-gap: 18px;
+  --board-gap-px: 18px;
+  --board-gap-u: 0.9375;
+  --board-gap: var(--board-gap-px, 18px);
   --board-main-scale: 1.05;
   --board-side-scale: 1.05;
-  --board-ticker-size: 15px;
+  --board-ticker-px: 15px;
+  --board-ticker-u: 0.8333;
+  --board-ticker-size: var(--board-ticker-px, 15px);
   --board-watermark-opacity: 0;
 
   --board-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -152,17 +158,17 @@ body::before {
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   width: 100%;
   min-height: 100dvh;
-  padding: clamp(14px, 1.5vw, 26px) clamp(16px, 2vw, 34px) 0;
-  gap: clamp(12px, 1.1vw, 20px);
+  padding: max(8px, calc(0.9 * var(--u))) var(--board-shell-pad-x) 0;
+  gap: max(6px, calc(0.75 * var(--u)));
   isolation: isolate;
 }
 
 .board-shell.has-frame::after {
   content: "";
   position: fixed;
-  inset: 8px;
+  inset: max(4px, calc(0.42 * var(--u)));
   border: 1px solid var(--board-line-subtle);
-  border-radius: 14px;
+  border-radius: max(8px, calc(0.75 * var(--u)));
   pointer-events: none;
   z-index: 2;
 }
@@ -179,7 +185,7 @@ body::before {
 }
 
 .board-watermark img {
-  width: min(320px, 26vw);
+  width: min(calc(18 * var(--u)), 26vw);
   height: auto;
   filter: grayscale(100%);
 }
@@ -191,30 +197,30 @@ body::before {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: clamp(12px, 1.6vw, 28px);
-  padding: clamp(12px, 1vw, 18px) clamp(16px, 1.4vw, 24px);
+  gap: max(10px, calc(1.3 * var(--u)));
+  padding: max(8px, calc(0.72 * var(--u))) max(12px, calc(1.15 * var(--u)));
   background: var(--board-surface);
   -webkit-backdrop-filter: blur(18px) saturate(135%);
   backdrop-filter: blur(18px) saturate(135%);
   border: 1px solid var(--board-line);
-  border-radius: 16px;
+  border-radius: max(10px, calc(0.85 * var(--u)));
   box-shadow: var(--board-card-shadow), var(--board-inner-glow);
 }
 
 .masthead-brand {
   display: flex;
   align-items: center;
-  gap: clamp(12px, 1vw, 18px);
+  gap: max(10px, calc(0.95 * var(--u)));
   min-width: 0;
 }
 
 .masthead-logo {
-  width: clamp(44px, 3.4vw, 60px);
-  height: clamp(44px, 3.4vw, 60px);
+  width: max(34px, calc(2.7 * var(--u)));
+  height: max(34px, calc(2.7 * var(--u)));
   border-radius: 50%;
   border: 1px solid var(--board-line);
   background: radial-gradient(circle at 30% 30%, rgba(110, 80, 62, 0.28), rgba(27, 18, 14, 0.96));
-  padding: 6px;
+  padding: max(4px, calc(0.32 * var(--u)));
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -238,7 +244,7 @@ html[data-theme="light"] .masthead-logo {
 .masthead-title {
   margin: 0;
   font-family: var(--board-font-serif);
-  font-size: clamp(20px, 1.85vw, 32px);
+  font-size: max(15px, calc(1.45 * var(--u)));
   font-weight: 700;
   line-height: 1.25;
   color: var(--board-gold-strong);
@@ -248,8 +254,8 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .masthead-subtitle {
-  margin: 3px 0 0;
-  font-size: clamp(11.5px, 0.78vw, 14px);
+  margin: max(2px, calc(0.16 * var(--u))) 0 0;
+  font-size: max(10.5px, calc(0.7 * var(--u)));
   color: var(--board-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -261,8 +267,8 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(14px, 1.4vw, 24px);
-  padding-inline: clamp(12px, 1.4vw, 24px);
+  gap: max(10px, calc(1.25 * var(--u)));
+  padding-inline: max(10px, calc(1.25 * var(--u)));
   border-inline: 1px solid var(--board-line-subtle);
   white-space: nowrap;
 }
@@ -275,7 +281,7 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .telemetry-kicker {
-  font-size: clamp(10px, 0.62vw, 11.5px);
+  font-size: max(9px, calc(0.58 * var(--u)));
   color: var(--board-subtle);
   letter-spacing: 0.02em;
 }
@@ -283,8 +289,8 @@ html[data-theme="light"] .masthead-logo {
 .telemetry-val {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: clamp(12.5px, 0.85vw, 15px);
+  gap: max(5px, calc(0.36 * var(--u)));
+  font-size: max(11px, calc(0.78 * var(--u)));
   font-weight: 600;
   color: var(--board-ink);
 }
@@ -302,8 +308,8 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .market-indicator {
-  width: 7px;
-  height: 7px;
+  width: max(6px, calc(0.38 * var(--u)));
+  height: max(6px, calc(0.38 * var(--u)));
   border-radius: 50%;
   background-color: currentColor;
   flex-shrink: 0;
@@ -315,7 +321,7 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: clamp(14px, 1.4vw, 24px);
+  gap: max(10px, calc(1.2 * var(--u)));
   min-width: 0;
 }
 
@@ -323,20 +329,20 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 3px;
+  gap: max(2px, calc(0.15 * var(--u)));
   text-align: left;
   white-space: nowrap;
 }
 
 .chronos-jalali {
-  font-size: clamp(13px, 0.88vw, 16px);
+  font-size: max(11px, calc(0.82 * var(--u)));
   font-weight: 600;
   color: var(--board-ink);
 }
 
 .chronos-gregorian {
   font-family: var(--board-font-mono);
-  font-size: clamp(11px, 0.72vw, 13px);
+  font-size: max(10px, calc(0.66 * var(--u)));
   color: var(--board-muted);
   direction: ltr;
 }
@@ -345,18 +351,18 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  padding-inline-start: clamp(14px, 1.4vw, 24px);
+  padding-inline-start: max(10px, calc(1.2 * var(--u)));
   border-inline-start: 1px solid var(--board-line-subtle);
   white-space: nowrap;
 }
 
 .chronos-clock-label {
-  font-size: clamp(10px, 0.62vw, 11.5px);
+  font-size: max(9px, calc(0.58 * var(--u)));
   color: var(--board-subtle);
 }
 
 .chronos-clock {
-  font-size: clamp(22px, 1.9vw, 34px);
+  font-size: max(18px, calc(1.62 * var(--u)));
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: 0.02em;
@@ -368,8 +374,8 @@ html[data-theme="light"] .masthead-logo {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, var(--board-side-width));
-  gap: clamp(16px, 1.8vw, 32px);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, var(--board-side-width));
+  gap: max(12px, calc(1.4 * var(--u)));
   min-height: 0;
   perspective: 1400px;
 }
@@ -390,7 +396,7 @@ html[data-theme="light"] .masthead-logo {
 
 .stage-side {
   border-inline-start: 1px solid var(--board-line-subtle);
-  padding-inline-start: clamp(16px, 1.8vw, 30px);
+  padding-inline-start: max(12px, calc(1.35 * var(--u)));
 }
 
 .board-stage.no-main .stage-side {
@@ -402,27 +408,27 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  padding-bottom: clamp(10px, 0.8vw, 14px);
-  margin-bottom: clamp(12px, 1vw, 18px);
+  gap: max(8px, calc(0.6 * var(--u)));
+  padding-bottom: max(6px, calc(0.52 * var(--u)));
+  margin-bottom: max(8px, calc(0.68 * var(--u)));
   border-bottom: 1px solid var(--board-line);
 }
 
 .stage-title {
   margin: 0;
   font-family: var(--board-font-serif);
-  font-size: clamp(17px, 1.3vw, 24px);
+  font-size: max(14px, calc(1.12 * var(--u)));
   font-weight: 700;
   color: var(--board-gold-strong);
 }
 
 .stage-count {
-  font-size: clamp(11px, 0.68vw, 12.5px);
+  font-size: max(10px, calc(0.64 * var(--u)));
   color: var(--board-subtle);
   white-space: nowrap;
 }
 
-/* Scroll Viewport (clips smoothly on desktop/TV when auto-scrolling overflowing items) */
+/* Scroll Viewport (clips smoothly on desktop/TV when auto-scrolling overflowing main items) */
 .stage-viewport {
   position: relative;
   flex: 1 1 auto;
@@ -453,15 +459,16 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: clamp(10px, 0.9vw, 16px);
-  padding: clamp(14px, 1.25vw, 22px) clamp(16px, 1.4vw, 24px);
+  gap: max(4px, calc(0.36 * var(--u)));
+  padding: max(6px, calc(0.56 * var(--u))) max(10px, calc(0.95 * var(--u)));
+  line-height: 1.28;
   background:
     radial-gradient(360px circle at var(--mx, 50%) var(--my, 15%), rgba(197, 168, 117, 0.12), transparent 62%),
     var(--board-surface);
   -webkit-backdrop-filter: blur(18px) saturate(120%);
   backdrop-filter: blur(18px) saturate(120%);
   border: 1px solid var(--board-line-subtle);
-  border-radius: 14px;
+  border-radius: max(10px, calc(0.73 * var(--u)));
   box-shadow: var(--board-card-shadow), var(--board-inner-glow);
   min-width: 0;
   overflow: hidden;
@@ -517,20 +524,20 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: max(6px, calc(0.45 * var(--u)));
   min-width: 0;
 }
 
 .rate-card-identity {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: max(6px, calc(0.48 * var(--u)));
   min-width: 0;
 }
 
 .rate-icon {
-  width: clamp(22px, 1.5vw, 28px);
-  height: clamp(22px, 1.5vw, 28px);
+  width: max(16px, calc(1.25 * var(--u)));
+  height: max(16px, calc(1.25 * var(--u)));
   color: var(--board-gold-strong);
   display: grid;
   place-items: center;
@@ -545,7 +552,7 @@ html[data-theme="light"] .masthead-logo {
 
 .rate-label {
   margin: 0;
-  font-size: calc(clamp(14px, 1vw, 19px) * var(--board-main-scale));
+  font-size: calc(max(11.5px, calc(0.92 * var(--u))) * var(--board-main-scale));
   font-weight: 700;
   color: var(--board-ink);
   white-space: nowrap;
@@ -554,7 +561,7 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .rate-meta-unit {
-  font-size: clamp(11px, 0.7vw, 13px);
+  font-size: max(9.5px, calc(0.62 * var(--u)));
   font-weight: 500;
   color: var(--board-subtle);
   white-space: nowrap;
@@ -564,25 +571,25 @@ html[data-theme="light"] .masthead-logo {
 .rate-quotes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding-top: clamp(8px, 0.7vw, 12px);
+  gap: max(8px, calc(0.62 * var(--u)));
+  padding-top: max(5px, calc(0.42 * var(--u)));
   border-top: 1px solid var(--board-line-subtle);
 }
 
 .rate-quote-col {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: max(2px, calc(0.14 * var(--u)));
   min-width: 0;
 }
 
 .rate-quote-col:last-child {
-  padding-inline-start: 12px;
+  padding-inline-start: max(8px, calc(0.62 * var(--u)));
   border-inline-start: 1px solid var(--board-line-subtle);
 }
 
 .quote-kind {
-  font-size: clamp(11px, 0.68vw, 13px);
+  font-size: max(9.5px, calc(0.62 * var(--u)));
   font-weight: 600;
 }
 
@@ -595,7 +602,7 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .quote-price {
-  font-size: calc(clamp(16px, 1.35vw, 26px) * var(--board-main-scale));
+  font-size: calc(max(13px, calc(1.18 * var(--u))) * var(--board-main-scale));
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.01em;
@@ -614,7 +621,7 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .quote-price.is-missing {
-  font-size: clamp(13px, 0.88vw, 16px);
+  font-size: max(11px, calc(0.76 * var(--u)));
   font-weight: 500;
   color: var(--board-subtle);
 }
@@ -624,14 +631,14 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  padding-top: clamp(8px, 0.7vw, 12px);
+  gap: max(8px, calc(0.62 * var(--u)));
+  padding-top: max(5px, calc(0.42 * var(--u)));
   border-top: 1px solid var(--board-line-subtle);
   min-width: 0;
 }
 
 .rate-single-price {
-  font-size: calc(clamp(19px, 1.65vw, 32px) * var(--board-main-scale));
+  font-size: calc(max(15px, calc(1.42 * var(--u))) * var(--board-main-scale));
   font-weight: 700;
   line-height: 1.15;
   color: var(--board-gold-strong);
@@ -641,7 +648,7 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .rate-trend {
-  font-size: clamp(12px, 0.78vw, 14px);
+  font-size: max(10px, calc(0.7 * var(--u)));
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
@@ -659,11 +666,31 @@ html[data-theme="light"] .masthead-logo {
   color: var(--board-subtle);
 }
 
-/* Side Panel: Global Markets & Currencies 3D Glass Ledger */
+/* Side Panel: Global Markets & Currencies 3D Glass Queue Ledger */
+@keyframes side-card-rise {
+  from {
+    transform: translate3d(0, var(--side-step, 64px), 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes side-card-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 .side-cards-list {
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 0.7vw, 12px);
+  gap: max(6px, calc(0.55 * var(--u)));
   transform-style: preserve-3d;
 }
 
@@ -671,19 +698,51 @@ html[data-theme="light"] .masthead-logo {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: clamp(11px, 0.9vw, 16px) clamp(14px, 1.1vw, 18px);
+  gap: max(3px, calc(0.3 * var(--u)));
+  padding: max(7px, calc(0.48 * var(--u))) max(10px, calc(0.78 * var(--u)));
+  line-height: 1.28;
   background:
     radial-gradient(280px circle at var(--mx, 50%) var(--my, 15%), rgba(197, 168, 117, 0.12), transparent 60%),
     var(--board-surface);
   -webkit-backdrop-filter: blur(16px) saturate(120%);
   backdrop-filter: blur(16px) saturate(120%);
   border: 1px solid var(--board-line-subtle);
-  border-radius: 12px;
+  border-radius: max(8px, calc(0.62 * var(--u)));
   box-shadow: var(--board-card-shadow), var(--board-inner-glow);
   overflow: hidden;
   transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(var(--tz, 0px));
-  transition: transform 260ms var(--board-ease), border-color var(--board-duration) var(--board-ease), box-shadow 260ms var(--board-ease);
+  transition: transform 260ms var(--board-ease), border-color var(--board-duration) var(--board-ease), box-shadow 260ms var(--board-ease), opacity 260ms var(--board-ease);
+}
+
+.side-card.is-fading-out {
+  opacity: 0;
+  transform: translate3d(0, -10px, 0) scale(0.985);
+  transition: opacity 380ms var(--board-ease), transform 380ms var(--board-ease);
+  pointer-events: none;
+}
+
+.side-card.is-rising {
+  animation: side-card-rise 460ms var(--board-ease) both;
+}
+
+.side-card.is-fading-in {
+  animation: side-card-enter 520ms var(--board-ease) both;
+}
+
+.side-card.is-rising.is-tick-up {
+  animation: side-card-rise 460ms var(--board-ease) both, board-card-tick-up 1.6s var(--board-ease);
+}
+
+.side-card.is-rising.is-tick-down {
+  animation: side-card-rise 460ms var(--board-ease) both, board-card-tick-down 1.6s var(--board-ease);
+}
+
+.side-card.is-fading-in.is-tick-up {
+  animation: side-card-enter 520ms var(--board-ease) both, board-card-tick-up 1.6s var(--board-ease);
+}
+
+.side-card.is-fading-in.is-tick-down {
+  animation: side-card-enter 520ms var(--board-ease) both, board-card-tick-down 1.6s var(--board-ease);
 }
 
 .side-card::before {
@@ -722,18 +781,18 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: max(6px, calc(0.45 * var(--u)));
 }
 
 .side-card-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: max(5px, calc(0.38 * var(--u)));
   min-width: 0;
 }
 
 .side-card-name {
-  font-size: calc(clamp(13px, 0.9vw, 17px) * var(--board-side-scale));
+  font-size: calc(max(11px, calc(0.84 * var(--u))) * var(--board-side-scale));
   font-weight: 700;
   color: var(--board-ink);
   white-space: nowrap;
@@ -742,7 +801,7 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .side-card-unit {
-  font-size: clamp(10.5px, 0.64vw, 12px);
+  font-size: max(9px, calc(0.58 * var(--u)));
   color: var(--board-subtle);
   white-space: nowrap;
   flex-shrink: 0;
@@ -751,8 +810,8 @@ html[data-theme="light"] .masthead-logo {
 .side-card-quotes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding-top: 7px;
+  gap: max(6px, calc(0.52 * var(--u)));
+  padding-top: max(4px, calc(0.36 * var(--u)));
   border-top: 1px solid var(--board-line-subtle);
 }
 
@@ -760,17 +819,17 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: max(1px, calc(0.1 * var(--u)));
   min-width: 0;
 }
 
 .side-quote-item:last-child {
-  padding-inline-start: 10px;
+  padding-inline-start: max(6px, calc(0.52 * var(--u)));
   border-inline-start: 1px solid var(--board-line-subtle);
 }
 
 .side-quote-label {
-  font-size: clamp(10.5px, 0.64vw, 12px);
+  font-size: max(9px, calc(0.58 * var(--u)));
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -784,7 +843,7 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .side-quote-value {
-  font-size: calc(clamp(13.5px, 0.98vw, 19px) * var(--board-side-scale));
+  font-size: calc(max(11.5px, calc(0.92 * var(--u))) * var(--board-side-scale));
   font-weight: 700;
   color: var(--board-ink);
   white-space: nowrap;
@@ -801,7 +860,7 @@ html[data-theme="light"] .masthead-logo {
 }
 
 .side-quote-value.is-missing {
-  font-size: 12px;
+  font-size: max(10.5px, calc(0.66 * var(--u)));
   font-weight: 500;
   color: var(--board-subtle);
 }
@@ -810,14 +869,14 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
-  padding-top: 6px;
+  gap: max(6px, calc(0.42 * var(--u)));
+  padding-top: max(4px, calc(0.34 * var(--u)));
   border-top: 1px solid var(--board-line-subtle);
   min-width: 0;
 }
 
 .side-single-price {
-  font-size: calc(clamp(15px, 1.15vw, 22px) * var(--board-side-scale));
+  font-size: calc(max(12.5px, calc(1.06 * var(--u))) * var(--board-side-scale));
   font-weight: 700;
   color: var(--board-gold-strong);
   white-space: nowrap;
@@ -830,13 +889,13 @@ html[data-theme="light"] .masthead-logo {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding-top: 6px;
+  gap: max(5px, calc(0.42 * var(--u)));
+  padding-top: max(4px, calc(0.32 * var(--u)));
   border-top: 1px solid rgba(159, 144, 130, 0.12);
 }
 
 .card-range-bound {
-  font-size: clamp(9.5px, 0.58vw, 11px);
+  font-size: max(8.5px, calc(0.52 * var(--u)));
   color: var(--board-subtle);
   line-height: 1;
   white-space: nowrap;
@@ -844,7 +903,7 @@ html[data-theme="light"] .masthead-logo {
 
 .card-range-track {
   position: relative;
-  height: 3px;
+  height: max(2.5px, calc(0.16 * var(--u)));
   border-radius: 999px;
   background-color: rgba(159, 144, 130, 0.22);
 }
@@ -860,8 +919,8 @@ html[data-theme="light"] .masthead-logo {
 .card-range-dot {
   position: absolute;
   top: 50%;
-  width: 7px;
-  height: 7px;
+  width: max(6px, calc(0.36 * var(--u)));
+  height: max(6px, calc(0.36 * var(--u)));
   border-radius: 50%;
   background-color: var(--board-ink);
   border: 1.5px solid var(--board-gold-strong);
@@ -902,14 +961,14 @@ html[data-theme="light"] .masthead-logo {
 .stage-empty {
   display: grid;
   place-items: center;
-  min-height: 200px;
-  padding: 28px;
+  min-height: max(120px, calc(8 * var(--u)));
+  padding: max(16px, calc(1.4 * var(--u)));
   border: 1px dashed var(--board-line);
-  border-radius: 14px;
+  border-radius: max(10px, calc(0.73 * var(--u)));
   background: var(--board-surface-inset);
   text-align: center;
   color: var(--board-muted);
-  font-size: 15px;
+  font-size: max(13px, calc(0.8 * var(--u)));
 }
 
 /* Band 3: Quiet Editorial Footer */
@@ -919,17 +978,17 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 8px 4px 2px;
+  gap: max(10px, calc(0.85 * var(--u)));
+  padding: max(4px, calc(0.36 * var(--u))) 4px max(2px, calc(0.12 * var(--u)));
   border-top: 1px solid var(--board-line-subtle);
-  font-size: clamp(11px, 0.72vw, 13px);
+  font-size: max(10px, calc(0.66 * var(--u)));
   color: var(--board-muted);
 }
 
 .footer-lines {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: max(8px, calc(0.62 * var(--u)));
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -957,19 +1016,19 @@ html[data-theme="light"] .masthead-logo {
   z-index: 1;
   display: flex;
   align-items: stretch;
-  margin-inline: calc(-1 * clamp(16px, 2vw, 34px));
+  margin-inline: calc(-1 * var(--board-shell-pad-x));
   background: var(--board-surface);
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
   border-top: 1px solid var(--board-line);
-  min-height: clamp(42px, 3.6vw, 56px);
+  min-height: max(34px, calc(2.5 * var(--u)));
   overflow: hidden;
 }
 
 .ticker-badge {
   display: flex;
   align-items: center;
-  padding-inline: clamp(14px, 1.4vw, 26px);
+  padding-inline: max(12px, calc(1.15 * var(--u)));
   background: linear-gradient(125deg, #6E503E, #C5A875, #5A3E30);
   background-size: 200% 200%;
   color: #F8F2E7;
@@ -1000,7 +1059,7 @@ html[data-theme="light"] .masthead-logo {
 
 .ticker-copy {
   flex: 0 0 auto;
-  padding-inline: 28px;
+  padding-inline: max(18px, calc(1.45 * var(--u)));
   font-size: var(--board-ticker-size);
   font-weight: 500;
   color: var(--board-ink);
@@ -1123,6 +1182,13 @@ html[data-theme="light"] .board-controls {
 
 /* Desktop/TV Locked Viewport Mode (>= 1024px wide & >= 620px tall) */
 @media (min-width: 1024px) and (min-height: 620px) {
+  :root {
+    --u: min(1vw, 1.7778dvh);
+    --board-shell-pad-x: max(10px, calc(1.35 * var(--u)));
+    --board-gap: max(8px, calc(var(--board-gap-u, 0.9375) * var(--u)));
+    --board-ticker-size: max(12px, calc(var(--board-ticker-u, 0.8333) * var(--u)));
+  }
+
   html,
   body {
     height: 100%;
@@ -1133,12 +1199,35 @@ html[data-theme="light"] .board-controls {
     height: 100dvh;
     overflow: hidden;
   }
+
+  .board-controls button,
+  .board-controls a,
+  .board-controls .farzin-logout,
+  #boardStatus {
+    font-size: max(12px, calc(0.625 * var(--u)));
+  }
+
+  .board-controls button,
+  .board-controls a,
+  .board-controls .farzin-logout {
+    min-height: max(32px, calc(1.75 * var(--u)));
+    padding: max(5px, calc(0.3 * var(--u))) max(10px, calc(0.56 * var(--u)));
+  }
 }
 
 /* Tablet & Mobile Responsive Unfolding */
 @media (max-width: 1023px), (max-height: 619px) {
+  :root {
+    --u: 14px;
+    --board-shell-pad-x: clamp(12px, 2.5vw, 22px);
+    --board-gap: var(--board-gap-px, 16px);
+    --board-ticker-size: var(--board-ticker-px, 15px);
+  }
+
   .board-shell {
+    padding-top: 14px;
     padding-bottom: 0;
+    gap: 14px;
   }
 
   .board-masthead {
@@ -1170,6 +1259,7 @@ html[data-theme="light"] .board-controls {
 
   .board-stage {
     grid-template-columns: 1fr;
+    gap: 18px;
   }
 
   .stage-side {
@@ -1189,6 +1279,11 @@ html[data-theme="light"] .board-controls {
 }
 
 @media (max-width: 680px) {
+  :root {
+    --u: 13px;
+    --board-shell-pad-x: 12px;
+  }
+
   .main-cards-grid {
     grid-template-columns: 1fr;
   }

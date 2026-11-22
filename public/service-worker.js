@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'farzin-static-v10';
+const CACHE_NAME = 'farzin-static-v11';
 const STATIC_ASSETS = [
   '/app-icon.svg',
   '/asset-catalog.js',

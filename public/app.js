@@ -501,7 +501,7 @@ function drawStoryArrow(ctx, x, y, direction) {
   else {ctx.rect(x-7,y-2,14,4);}
   ctx.closePath();ctx.fill();ctx.restore();
 }
-function drawStoryTrendBadge(ctx, anchorX, centerY, pct, direction, align = 'right') {
+function drawStoryTrendBadge(ctx, anchorX, by, badgeH, maxBadgeW, pct, direction, align = 'right') {
   const hasPct = pct !== null && pct !== undefined && pct !== '' && Number.isFinite(Number(pct));
   const num = hasPct ? Number(pct) : null;
   const dir = direction === 'up' || direction === 'down' || direction === 'flat'
@@ -517,37 +517,45 @@ function drawStoryTrendBadge(ctx, anchorX, centerY, pct, direction, align = 'rig
   const fillColor = dir === 'up' ? 'rgba(164,198,144,0.16)' : dir === 'down' ? 'rgba(212,119,134,0.18)' : 'rgba(159,144,130,0.14)';
   const strokeColor = dir === 'up' ? 'rgba(164,198,144,0.46)' : dir === 'down' ? 'rgba(212,119,134,0.48)' : 'rgba(159,144,130,0.32)';
   ctx.save();
-  ctx.font = '700 12px Vazirmatn, Tahoma, sans-serif';
-  const textW = ctx.measureText(text).width;
-  const arrowW = 8;
-  const padX = 7;
-  const badgeW = Math.ceil(padX * 2 + arrowW + 5 + textW);
-  const badgeH = 22;
+  ctx.direction = 'ltr';
+  let fontSize = Math.max(9.5, Math.min(12, Math.round(badgeH * 0.6)));
+  const arrowW = Math.max(6, Math.round(badgeH * 0.38));
+  const padX = Math.max(5, Math.round(badgeH * 0.34));
+  const gap = 4;
+  let textW = 0;
+  while (true) {
+    ctx.font = `700 ${fontSize}px Vazirmatn, Tahoma, sans-serif`;
+    textW = ctx.measureText(text).width;
+    if (padX * 2 + arrowW + gap + textW <= maxBadgeW || fontSize <= 8.5) break;
+    fontSize = Math.max(8.5, fontSize - 0.5);
+  }
+  const badgeW = Math.min(maxBadgeW, Math.ceil(padX * 2 + arrowW + gap + textW));
   const bx = align === 'left' ? anchorX : anchorX - badgeW;
-  const by = centerY - badgeH / 2;
+  const centerY = by + badgeH / 2;
   ctx.fillStyle = fillColor;
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = 1;
-  roundRect(ctx, bx, by, badgeW, badgeH, 6);
+  roundRect(ctx, bx, by, badgeW, badgeH, 5);
   ctx.fill();
   ctx.stroke();
-  const ax = bx + padX + 4;
+  const halfA = arrowW / 2;
+  const ax = bx + padX + halfA;
   ctx.fillStyle = accentColor;
   ctx.beginPath();
   if (dir === 'up') {
-    ctx.moveTo(ax, centerY - 4); ctx.lineTo(ax - 4, centerY + 3); ctx.lineTo(ax + 4, centerY + 3);
+    ctx.moveTo(ax, centerY - halfA * 0.9); ctx.lineTo(ax - halfA, centerY + halfA * 0.8); ctx.lineTo(ax + halfA, centerY + halfA * 0.8);
   } else if (dir === 'down') {
-    ctx.moveTo(ax, centerY + 4); ctx.lineTo(ax - 4, centerY - 3); ctx.lineTo(ax + 4, centerY - 3);
+    ctx.moveTo(ax, centerY + halfA * 0.9); ctx.lineTo(ax - halfA, centerY - halfA * 0.8); ctx.lineTo(ax + halfA, centerY - halfA * 0.8);
   } else {
-    ctx.rect(ax - 4, centerY - 1, 8, 2);
+    ctx.rect(ax - halfA, centerY - 1, arrowW, 2);
   }
   ctx.closePath();
   ctx.fill();
+  const maxTextW = Math.max(12, badgeW - (padX * 2 + arrowW + gap));
   ctx.fillStyle = textColor;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.direction = 'ltr';
-  ctx.fillText(text, ax + 7, centerY + 0.5);
+  ctx.fillText(text, bx + padX + arrowW + gap, centerY + 0.5, maxTextW);
   ctx.restore();
   return badgeW;
 }
@@ -755,24 +763,28 @@ function drawStory(canvas, scale) {
     const data=rateDataFor(row),featured=Boolean(row.featured),unit=data.unit||row.unit||'',single=row.showTwoPrices===false;
     const showTrend=cfg.showTrends!==false;
     const hasTrendData=showTrend&&((data.change_pct!==null&&data.change_pct!==undefined&&data.change_pct!==''&&Number.isFinite(Number(data.change_pct)))||data.direction==='up'||data.direction==='down');
+    const badgeH=Math.max(15,Math.min(19,Math.round(h*0.24)));
+    const badgeY=y+Math.max(6,Math.min(10,Math.round(h*0.10)));
+    const maxBadgeW=Math.max(54,Math.min(92,Math.floor(w*0.23)));
     drawCardSurface(ctx,x,y,w,h,featured);
     drawAssetIcon(ctx,assetIcon(row),x+22,y+Math.min(18,h*.22),Math.min(17,h*.22));
     if(single){
-      const badgeW=hasTrendData?drawStoryTrendBadge(ctx,x+42,y+Math.min(18,h*.22),data.change_pct,data.direction,'left'):0;
-      drawFitText(ctx,row.label||'',x+w-18,y+Math.min(21,h*.29),Math.min(19,h*.24),main,'right',700,w-(badgeW?66+badgeW:48),12);
+      const badgeW=hasTrendData?drawStoryTrendBadge(ctx,x+42,badgeY,badgeH,maxBadgeW,data.change_pct,data.direction,'left'):0;
+      drawFitText(ctx,row.label||'',x+w-20,y+Math.min(21,h*.29),Math.min(19,h*.24),main,'right',700,Math.max(80,w-(badgeW?70+badgeW:52)),12);
     } else {
-      const badgeW=hasTrendData?drawStoryTrendBadge(ctx,x+w-12,y+Math.min(18,h*.22),data.change_pct,data.direction,'right'):0;
-      drawFitText(ctx,row.label||'',x+w/2,y+Math.min(21,h*.29),Math.min(19,h*.24),main,'center',700,badgeW?Math.max(96,w-(badgeW+46)*2):w-64,12);
+      const badgeW=hasTrendData?drawStoryTrendBadge(ctx,x+w-22,badgeY,badgeH,maxBadgeW,data.change_pct,data.direction,'right'):0;
+      const maxLabelW=badgeW?Math.max(84,w-2*Math.max(46,badgeW+32)):w-64;
+      drawFitText(ctx,row.label||'',x+w/2,y+Math.min(21,h*.29),Math.min(19,h*.24),main,'center',700,maxLabelW,11);
     }
     if(single){
        const value=data.value===''?'-':formatValue(data.value);
        drawStoryPrice(ctx,value,unit,x+w/2,y+h*.73,Math.min(56,h*.55,w*.18),featured?'#e8d8be':main,w-36,12);
       return;
     }
-     const quotes=storyQuotePrices(data.value,row),valueSize=Math.min(44,h*.32,w*.095),labelSize=Math.min(14,h*.18),columnW=(w-34)/2,labelY=y+h*.45,valueY=y+h*.84;
-     drawFitText(ctx,'خرید ما',x+w-columnW/2-14,labelY,labelSize,'#d47786','center',700,columnW-12,11);
+     const quotes=storyQuotePrices(data.value,row),valueSize=Math.min(44,h*.32,w*.095),labelSize=Math.min(14,h*.17),columnW=(w-34)/2,labelY=y+Math.max(h*.48,27),valueY=y+h*.84;
+     drawFitText(ctx,'خرید ما',x+w-columnW/2-14,labelY,labelSize,'#d47786','center',700,columnW-12,10);
      drawStoryPrice(ctx,quotes.buy,unit,x+w-columnW/2-14,valueY,valueSize,'#ecc0c7',columnW-12,10);
-     drawFitText(ctx,'فروش ما',x+columnW/2+14,labelY,labelSize,'#a4c690','center',700,columnW-12,11);
+     drawFitText(ctx,'فروش ما',x+columnW/2+14,labelY,labelSize,'#a4c690','center',700,columnW-12,10);
      drawStoryPrice(ctx,quotes.sell,unit,x+columnW/2+14,valueY,valueSize,'#cfe3c1',columnW-12,10);
   };
   if(cfg.showMainRates!==false){

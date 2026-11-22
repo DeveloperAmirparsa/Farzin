@@ -85,13 +85,21 @@ let nextRefreshAt = Date.now() + 30000;
 let tickerOffset = 0;
 let tickerLastFrameAt = 0;
 let cardScrollOffset = 0;
-let sideScrollOffset = 0;
+let sideHeadIndex = 0;
+let sideVisibleCapacity = null;
+let sideStepPx = 64;
+let sideCycleTimer = null;
+let sideTransitionTimer = null;
+let sideSettleTimer = null;
+let isSideAnimating = false;
+let boardResizeObserver = null;
 let controlHideTimer = null;
 let refreshTimer = null;
 let newsTimer = null;
 let connectionState = 'connecting';
 let serverOffline = false;
-let lastRatesSignature = '';
+let lastMainSignature = '';
+let lastSideSignature = '';
 let lastNewsText = '';
 let currentTheme = 'dark';
 const previousBoardPrices = new Map();
@@ -347,10 +355,11 @@ function renderMainCardHtml(row) {
     </article>`;
 }
 
-function renderSideCardHtml(item) {
+function renderSideCardHtml(item, extraClass = '') {
   const rate = rateFor(item);
   const unit = String(rate?.unit || item.unit || '').trim();
   const tickClass = cardTickClass(item);
+  const animClass = extraClass ? ` ${extraClass}` : '';
   const keyAttr = esc(cardTickKey(item));
   const iconSvg = assetIconSvg(item);
 
@@ -381,7 +390,7 @@ function renderSideCardHtml(item) {
   }
 
   return `
-    <article class="side-card${tickClass}" data-card-id="${keyAttr}">
+    <article class="side-card${tickClass}${animClass}" data-card-id="${keyAttr}">
       <div class="side-card-top">
         <div class="side-card-title">
           ${iconSvg ? `<span class="rate-icon">${iconSvg}</span>` : ''}
@@ -415,10 +424,12 @@ function applyThemeAndDesignTokens() {
 
   rootEl.style.setProperty('--board-cols', String(cols));
   rootEl.style.setProperty('--board-side-width', `${sidePercent}%`);
-  rootEl.style.setProperty('--board-gap', `${gap}px`);
+  rootEl.style.setProperty('--board-gap-px', `${gap}px`);
+  rootEl.style.setProperty('--board-gap-u', (gap / 19.2).toFixed(4));
   rootEl.style.setProperty('--board-main-scale', String(mainScale));
   rootEl.style.setProperty('--board-side-scale', String(sideScale));
-  rootEl.style.setProperty('--board-ticker-size', `${tickerSize}px`);
+  rootEl.style.setProperty('--board-ticker-px', `${tickerSize}px`);
+  rootEl.style.setProperty('--board-ticker-u', (tickerSize / 19.2).toFixed(4));
   rootEl.style.setProperty('--board-watermark-opacity', String(watermarkOpacity));
 
   const customProps = ['--board-bg', '--board-gold', '--board-ink', '--board-muted'];
@@ -524,6 +535,173 @@ function syncOverflowClones(trackId, viewportId) {
   }
 }
 
+function isDesktopLockedViewport() {
+  return (Number(window.innerWidth) || 0) >= 1024 && (Number(window.innerHeight) || 0) >= 620;
+}
+
+function visibleSideSlice(side, startIdx, cap) {
+  if (!Array.isArray(side) || !side.length) return [];
+  const count = Math.min(side.length, Math.max(1, Number(cap) || side.length));
+  if (count >= side.length) return side.slice();
+  const offset = ((Number(startIdx) || 0) % side.length + side.length) % side.length;
+  const slice = [];
+  for (let i = 0; i < count; i++) slice.push(side[(offset + i) % side.length]);
+  return slice;
+}
+
+function measureSideCapacity(totalCount) {
+  if (!totalCount) return 0;
+  if (!isDesktopLockedViewport()) return totalCount;
+  const viewport = $('sideViewport');
+  const list = $('sideList');
+  if (!viewport || !list) return totalCount;
+  const vpH = Number(viewport.clientHeight) || 0;
+  if (vpH <= 40) return totalCount;
+  const firstCard = list.children?.[0];
+  if (!firstCard || !firstCard.offsetHeight) return totalCount;
+  const cs = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(list) : null;
+  const gap = cs ? (parseFloat(cs.rowGap || cs.gap) || 10) : 10;
+  const cardH = Number(firstCard.offsetHeight) || 0;
+  if (cardH <= 0) return totalCount;
+  sideStepPx = Math.round(cardH + gap);
+  const fit = Math.max(1, Math.floor((vpH + gap - 2) / sideStepPx));
+  return Math.min(totalCount, fit);
+}
+
+function stopSideRotation() {
+  clearTimeout(sideCycleTimer);
+  sideCycleTimer = null;
+  clearTimeout(sideTransitionTimer);
+  sideTransitionTimer = null;
+  clearTimeout(sideSettleTimer);
+  sideSettleTimer = null;
+  isSideAnimating = false;
+}
+
+function sideCycleDelayMs() {
+  const speed = Math.max(5, Math.min(120, Number(settings?.boardConfig?.cardScrollSpeed) || 32));
+  return Math.max(1800, Math.min(6000, Math.round(4800 - speed * 26)));
+}
+
+function syncSideRotation(totalCount, cap) {
+  const reducedMotion = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const canCycle = isDesktopLockedViewport()
+    && settings?.boardConfig?.showSideRates !== false
+    && !reducedMotion
+    && !document.hidden
+    && totalCount > cap
+    && cap >= 1;
+  if (!canCycle) {
+    stopSideRotation();
+    return;
+  }
+  if (!sideCycleTimer && !isSideAnimating) {
+    clearTimeout(sideCycleTimer);
+    sideCycleTimer = setTimeout(stepSideQueue, sideCycleDelayMs());
+  }
+}
+
+function stepSideQueue() {
+  sideCycleTimer = null;
+  const side = sideRows();
+  const cap = Math.min(side.length, Number(sideVisibleCapacity) || side.length);
+  const reducedMotion = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  if (!isDesktopLockedViewport() || settings?.boardConfig?.showSideRates === false || reducedMotion || document.hidden || side.length <= cap || cap < 1) {
+    stopSideRotation();
+    return;
+  }
+  const list = $('sideList');
+  if (!list) return;
+  const firstCard = list.firstElementChild;
+  if (!firstCard || !firstCard.classList) {
+    sideHeadIndex = (sideHeadIndex + 1) % side.length;
+    renderSideQueueList(side, false);
+    return;
+  }
+
+  const cs = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(list) : null;
+  const gap = cs ? (parseFloat(cs.rowGap || cs.gap) || 10) : 10;
+  const measuredStep = firstCard.offsetHeight ? Math.round(firstCard.offsetHeight + gap) : sideStepPx;
+  if (measuredStep > 0) sideStepPx = measuredStep;
+
+  isSideAnimating = true;
+  firstCard.classList.add('is-fading-out');
+
+  clearTimeout(sideTransitionTimer);
+  sideTransitionTimer = setTimeout(() => {
+    sideTransitionTimer = null;
+    const currentSide = sideRows();
+    const currentCap = Math.min(currentSide.length, Number(sideVisibleCapacity) || currentSide.length);
+    if (!currentSide.length || currentSide.length <= currentCap || !isDesktopLockedViewport()) {
+      isSideAnimating = false;
+      renderSideQueueList(currentSide, true);
+      return;
+    }
+    sideHeadIndex = (sideHeadIndex + 1) % currentSide.length;
+    const nextSlice = visibleSideSlice(currentSide, sideHeadIndex, currentCap);
+    if (list.style) list.style.setProperty('--side-step', `${sideStepPx}px`);
+    list.innerHTML = nextSlice.map((item, idx) => {
+      const animClass = idx === nextSlice.length - 1 ? 'is-fading-in' : 'is-rising';
+      return renderSideCardHtml(item, animClass);
+    }).join('');
+    fitBoardNumbers();
+    isSideAnimating = false;
+
+    clearTimeout(sideSettleTimer);
+    sideSettleTimer = setTimeout(() => {
+      sideSettleTimer = null;
+      if (list.children) {
+        for (const card of list.children) card.classList?.remove('is-rising', 'is-fading-in');
+      }
+    }, 550);
+
+    syncSideRotation(currentSide.length, currentCap);
+  }, 380);
+}
+
+function renderSideQueueList(side, forceMeasure = false) {
+  const list = $('sideList');
+  if (!list) return;
+  if (!side.length) {
+    sideVisibleCapacity = 0;
+    list.innerHTML = '<div class="stage-empty">دارایی جانبی تعریف نشده است.</div>';
+    stopSideRotation();
+    return;
+  }
+  if (!isDesktopLockedViewport()) {
+    sideHeadIndex = 0;
+    sideVisibleCapacity = side.length;
+    list.innerHTML = side.map(item => renderSideCardHtml(item)).join('');
+    fitBoardNumbers();
+    stopSideRotation();
+    return;
+  }
+
+  let cap = (!forceMeasure && Number.isInteger(sideVisibleCapacity) && sideVisibleCapacity > 0)
+    ? Math.min(side.length, sideVisibleCapacity)
+    : side.length;
+  let slice = visibleSideSlice(side, sideHeadIndex, cap);
+  list.innerHTML = slice.map(item => renderSideCardHtml(item)).join('');
+  fitBoardNumbers();
+
+  const measured = measureSideCapacity(side.length);
+  if (measured > 0 && measured < cap) {
+    cap = measured;
+    slice = visibleSideSlice(side, sideHeadIndex, cap);
+    list.innerHTML = slice.map(item => renderSideCardHtml(item)).join('');
+    fitBoardNumbers();
+  }
+  const viewport = $('sideViewport');
+  while (cap > 1 && viewport && viewport.clientHeight > 40 && list.scrollHeight > viewport.clientHeight + 2) {
+    cap -= 1;
+    slice = visibleSideSlice(side, sideHeadIndex, cap);
+    list.innerHTML = slice.map(item => renderSideCardHtml(item)).join('');
+    fitBoardNumbers();
+  }
+  sideVisibleCapacity = cap;
+  syncSideRotation(side.length, cap);
+}
+
 function render() {
   applyThemeAndDesignTokens();
   const bc = settings.boardConfig || {};
@@ -564,8 +742,8 @@ function render() {
   const mainHtml = rows.length
     ? rows.map(renderMainCardHtml).join('')
     : '<div class="stage-empty">برای نمایش نرخ، از بخش کانفیگ تابلو ردیف اضافه کنید.</div>';
-  const sideHtml = side.length
-    ? side.map(renderSideCardHtml).join('')
+  const sideHtmlFull = side.length
+    ? side.map(item => renderSideCardHtml(item)).join('')
     : '<div class="stage-empty">دارایی جانبی تعریف نشده است.</div>';
 
   const footerItems = (bc.footerLines || [])
@@ -579,14 +757,18 @@ function render() {
       : '';
   }
 
-  const signature = `${currentTheme}::${mainHtml}::${sideHtml}::${bc.mainColumns}::${bc.sidePanelPercent}::${bc.mainFontScale}::${bc.sideFontScale}`;
-  if (signature !== lastRatesSignature) {
-    lastRatesSignature = signature;
+  const mainSig = `${currentTheme}::${mainHtml}::${bc.mainColumns}::${bc.sidePanelPercent}::${bc.mainFontScale}`;
+  if (mainSig !== lastMainSignature) {
+    lastMainSignature = mainSig;
     if ($('mainGrid')) $('mainGrid').innerHTML = mainHtml;
-    if ($('sideList')) $('sideList').innerHTML = sideHtml;
     fitBoardNumbers();
     syncOverflowClones('mainTrack', 'mainViewport');
-    syncOverflowClones('sideTrack', 'sideViewport');
+  }
+
+  const sideSig = `${currentTheme}::${sideHtmlFull}::${bc.sidePanelPercent}::${bc.sideFontScale}::${bc.cardScrollSpeed}`;
+  if (sideSig !== lastSideSignature && !isSideAnimating) {
+    lastSideSignature = sideSig;
+    renderSideQueueList(side, sideVisibleCapacity === null);
   }
 
   const tickerEl = $('boardTicker');
@@ -614,7 +796,7 @@ function animateBoardMotion(timestamp) {
 
   const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const scrollSpeed = Math.max(5, Math.min(120, Number(settings?.boardConfig?.cardScrollSpeed) || 32));
-  const canScrollViewport = (Number(window.innerWidth) || 0) >= 1024 && (Number(window.innerHeight) || 0) >= 620;
+  const canScrollViewport = isDesktopLockedViewport();
 
   if (!reducedMotion && canScrollViewport) {
     const gap = Math.max(12, Math.min(28, Number(settings?.boardConfig?.mainCardGap) || 18));
@@ -626,17 +808,6 @@ function animateBoardMotion(timestamp) {
       if (cycle > 0) {
         cardScrollOffset = (cardScrollOffset + scrollSpeed * dt) % cycle;
         if (mainTrack.style) mainTrack.style.transform = `translate3d(0, ${-cardScrollOffset.toFixed(1)}px, 0)`;
-      }
-    }
-
-    const sideTrack = $('sideTrack');
-    const sideList = $('sideList');
-    const sideViewport = $('sideViewport');
-    if (sideTrack && sideList && sideViewport && sideTrack.querySelector?.('[data-loop-clone="true"]')) {
-      const cycle = sideList.offsetHeight + gap;
-      if (cycle > 0) {
-        sideScrollOffset = (sideScrollOffset + scrollSpeed * dt) % cycle;
-        if (sideTrack.style) sideTrack.style.transform = `translate3d(0, ${-sideScrollOffset.toFixed(1)}px, 0)`;
       }
     }
   }
@@ -902,15 +1073,32 @@ function revealBoardControls() {
 }
 
 function handleResize() {
+  stopSideRotation();
+  sideVisibleCapacity = null;
   fitBoardNumbers();
   syncOverflowClones('mainTrack', 'mainViewport');
-  syncOverflowClones('sideTrack', 'sideViewport');
+  renderSideQueueList(sideRows(), true);
 }
 
 document.addEventListener('mousemove', revealBoardControls);
 document.addEventListener('touchstart', revealBoardControls, { passive: true });
 window.addEventListener('resize', handleResize);
 document.fonts?.ready?.then(handleResize);
+if (typeof window.ResizeObserver === 'function') {
+  let resizeRaf = 0;
+  boardResizeObserver = new window.ResizeObserver(() => {
+    if (resizeRaf) return;
+    const schedule = typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame
+      : fn => setTimeout(fn, 16);
+    resizeRaf = schedule(() => {
+      resizeRaf = 0;
+      handleResize();
+    });
+  });
+  if ($('mainViewport')) boardResizeObserver.observe($('mainViewport'));
+  if ($('sideViewport')) boardResizeObserver.observe($('sideViewport'));
+}
 
 render();
 window.__farzinBoardBooted = true;
@@ -927,8 +1115,11 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     tickerLastFrameAt = 0;
     if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(animateBoardMotion);
+    syncSideRotation(sideRows().length, Number(sideVisibleCapacity) || sideRows().length);
     clearTimeout(refreshTimer);
     refreshAll();
+  } else {
+    stopSideRotation();
   }
 });
 
