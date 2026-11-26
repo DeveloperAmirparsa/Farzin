@@ -1,36 +1,77 @@
 'use strict';
 (() => {
-  const detectLowPowerMode = () => {
+  const detectDisplayAndPower = () => {
     try {
       const ua = String(navigator?.userAgent || '');
-      const isTv = /Tizen|Web0S|webOS|SMART-TV|SmartTV|NetCast|Maple|HbbTV|BRAVIA|AFT|Android TV|GoogleTV|CrKey|Hisense|TCL|Roku|Viera|PhilipsTV|AQUOS|PHILIPS|SAMSUNG.*Browser|LG Browser|MiBox|SHIELD/i.test(ua);
+      const uaIsTv = /Tizen|Web0S|webOS|SMART-TV|SmartTV|NetCast|Maple|HbbTV|BRAVIA|AFT|Android TV|GoogleTV|CrKey|Hisense|TCL|Roku|Viera|PhilipsTV|AQUOS|PHILIPS|SAMSUNG.*Browser|LG Browser|MiBox|Mi Box|SHIELD|TVBOX|Leanback/i.test(ua);
       const search = String(location?.search || '');
-      if (/[?&](?:lite=0|perf=high)\b/i.test(search)) return { lowPower: false, isTv };
-      if (/[?&](?:lite=1|tv=1|perf=low)\b/i.test(search)) return { lowPower: true, isTv: true };
-      const stored = window.localStorage?.getItem('farzin_perf_mode');
-      if (stored === 'high') return { lowPower: false, isTv };
-      if (stored === 'low') return { lowPower: true, isTv };
-      const cores = Number(navigator?.hardwareConcurrency);
-      const mem = Number(navigator?.deviceMemory);
-      const saveData = Boolean(navigator?.connection?.saveData);
-      const reducedMotion = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
-      const noBackdrop = typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
-        ? (!CSS.supports('backdrop-filter', 'blur(4px)') && !CSS.supports('-webkit-backdrop-filter', 'blur(4px)'))
-        : false;
-      const weakCpu = Number.isFinite(cores) && cores > 0 && cores <= 4;
-      const weakRam = Number.isFinite(mem) && mem > 0 && mem <= 2;
-      return { lowPower: isTv || weakCpu || weakRam || saveData || reducedMotion || noBackdrop, isTv };
+      const displayMatch = /[?&]display=(auto|tv|monitor)\b/i.exec(search);
+      let displayMode = displayMatch ? displayMatch[1].toLowerCase() : '';
+      if (!displayMode && /[?&]tv=1\b/i.test(search)) displayMode = 'tv';
+      if (!displayMode) {
+        const storedMode = window.localStorage?.getItem('farzin_display_mode');
+        displayMode = (storedMode === 'tv' || storedMode === 'monitor' || storedMode === 'auto') ? storedMode : 'auto';
+      }
+
+      const w = Math.max(0, Number(window.innerWidth) || 0);
+      const h = Math.max(0, Number(window.innerHeight) || 0);
+      const portrait = h > w;
+      const isAndroidWv = /Android/i.test(ua) && (/;\s*wv\)|Android.*Version\/[\d.]+.*Chrome\//i.test(ua)) && !Number(navigator?.maxTouchPoints);
+      const isTv = displayMode === 'tv' || (displayMode === 'auto' && (uaIsTv || isAndroidWv));
+
+      let lowPower;
+      if (/[?&](?:lite=0|perf=high)\b/i.test(search)) lowPower = false;
+      else if (/[?&](?:lite=1|tv=1|perf=low)\b/i.test(search)) lowPower = true;
+      else {
+        const storedPerf = window.localStorage?.getItem('farzin_perf_mode');
+        if (storedPerf === 'high') lowPower = false;
+        else if (storedPerf === 'low') lowPower = true;
+        else {
+          const cores = Number(navigator?.hardwareConcurrency);
+          const mem = Number(navigator?.deviceMemory);
+          const saveData = Boolean(navigator?.connection?.saveData);
+          const reducedMotion = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
+          const noBackdrop = typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+            ? (!CSS.supports('backdrop-filter', 'blur(4px)') && !CSS.supports('-webkit-backdrop-filter', 'blur(4px)'))
+            : false;
+          const weakCpu = Number.isFinite(cores) && cores > 0 && cores <= 4;
+          const weakRam = Number.isFinite(mem) && mem > 0 && mem <= 2;
+          lowPower = isTv || weakCpu || weakRam || saveData || reducedMotion || noBackdrop;
+        }
+      }
+
+      const mainMotionOff = window.localStorage?.getItem('farzin_main_motion') === 'off';
+      const rotateOn = /[?&]rotate=1\b/i.test(search) || (!/[?&]rotate=0\b/i.test(search) && window.localStorage?.getItem('farzin_kiosk_rotate') === 'on');
+
+      return {
+        lowPower,
+        isTv,
+        displayMode,
+        displayProfile: isTv ? 'tv' : 'monitor',
+        mainMotionOff,
+        rotateLandscape: portrait && rotateOn
+      };
     } catch {
-      return { lowPower: false, isTv: false };
+      return { lowPower: false, isTv: false, displayMode: 'auto', displayProfile: 'monitor', mainMotionOff: false, rotateLandscape: false };
     }
   };
-  const hwProfile = detectLowPowerMode();
+  const hwProfile = detectDisplayAndPower();
   window.__farzinLowPower = hwProfile.lowPower;
   window.__farzinIsTv = hwProfile.isTv;
+  window.__farzinDisplayMode = hwProfile.displayMode;
+  window.__farzinDisplayProfile = hwProfile.displayProfile;
+  window.__farzinMainMotion = hwProfile.mainMotionOff ? 'off' : 'on';
   if (document?.documentElement?.classList) {
-    document.documentElement.classList.toggle('fz-low-power', hwProfile.lowPower);
-    document.documentElement.classList.toggle('fz-tv', hwProfile.isTv);
+    const rootCls = document.documentElement.classList;
+    rootCls.toggle('fz-low-power', hwProfile.lowPower);
+    rootCls.toggle('fz-tv', hwProfile.isTv);
+    rootCls.toggle('fz-display-tv', hwProfile.displayProfile === 'tv');
+    rootCls.toggle('fz-display-monitor', hwProfile.displayProfile === 'monitor');
+    rootCls.toggle('fz-main-static', hwProfile.mainMotionOff);
+    rootCls.toggle('fz-rotate-landscape', hwProfile.rotateLandscape);
     document.documentElement.setAttribute?.('data-perf-mode', hwProfile.lowPower ? 'low' : 'high');
+    document.documentElement.setAttribute?.('data-display-mode', hwProfile.displayMode);
+    document.documentElement.setAttribute?.('data-display-profile', hwProfile.displayProfile);
   }
 
   const TOKEN_KEY = 'farzin_token';

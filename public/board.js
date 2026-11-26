@@ -1,11 +1,19 @@
 'use strict';
-const $ = id => document.getElementById(id);
+const domCache = Object.create(null);
+const $ = id => {
+  const cachedEl = domCache[id];
+  if (cachedEl && cachedEl.isConnected !== false) return cachedEl;
+  const el = document.getElementById(id);
+  if (el) domCache[id] = el;
+  return el;
+};
 const cloneConfig = value => {
   if (typeof window.structuredClone === 'function') return window.structuredClone(value);
   return JSON.parse(JSON.stringify(value));
 };
 
 const DEFAULT_FEED = 'https://feeds.bbci.co.uk/persian/rss.xml';
+const MAIN_MOTION_KEY = 'farzin_main_motion';
 const LEGACY_PALETTE = {
   bgColor: '#1b120e',
   goldColor: '#c5a875',
@@ -39,7 +47,7 @@ function detectLowPowerFallback() {
     if (/[?&]lite=0\b/i.test(search)) return false;
     if (/[?&](?:lite=1|tv=1)\b/i.test(search)) return true;
     const ua = String(typeof navigator !== 'undefined' ? navigator?.userAgent || '' : '');
-    const isTv = /Tizen|Web0S|webOS|SMART-TV|SmartTV|NetCast|Maple|HbbTV|BRAVIA|AFT|Android TV|GoogleTV|CrKey|Hisense|TCL|Roku|Viera|PhilipsTV|AQUOS|PHILIPS|SAMSUNG.*Browser|LG Browser/i.test(ua);
+    const isTv = /Tizen|Web0S|webOS|SMART-TV|SmartTV|NetCast|Maple|HbbTV|BRAVIA|AFT|Android TV|GoogleTV|CrKey|Hisense|TCL|Roku|Viera|PhilipsTV|AQUOS|PHILIPS|SAMSUNG.*Browser|LG Browser|MiBox|Mi Box|SHIELD|TVBOX|Leanback/i.test(ua);
     const cores = Number(typeof navigator !== 'undefined' ? navigator?.hardwareConcurrency : NaN);
     const mem = Number(typeof navigator !== 'undefined' ? navigator?.deviceMemory : NaN);
     const saveData = Boolean(typeof navigator !== 'undefined' && navigator?.connection?.saveData);
@@ -137,6 +145,7 @@ let boardResizeObserver = null;
 let controlHideTimer = null;
 let refreshTimer = null;
 let newsTimer = null;
+let chronosTimer = null;
 let connectionState = 'connecting';
 let serverOffline = false;
 let lastMainSignature = '';
@@ -145,6 +154,7 @@ let lastSideSignature = '';
 let lastSideStructSig = '';
 let lastNewsText = '';
 let currentTheme = 'dark';
+let mainMotionEnabled = true;
 let lastDashboardEtag = '';
 let lastConfigVersion = null;
 let lastConfigFetchedAt = 0;
@@ -155,14 +165,24 @@ let cachedMainCyclePx = 0;
 let cachedTickerLoopWidth = 0;
 let motionRafId = 0;
 let lastMotionPaintAt = 0;
+let lastThemeTokenSig = '';
+let lastClockDisplay = '';
+let lastRenderedDateSig = '';
+let lastHeaderSig = '';
+let lastStatusSig = '';
+let lastDotSig = '';
 const fittedNodeCache = typeof WeakMap === 'function' ? new WeakMap() : null;
+const cardRefCache = typeof WeakMap === 'function' ? new WeakMap() : null;
 const previousBoardPrices = new Map();
 const activeBoardTicks = new Map();
+const tickedCardElements = new Set();
 let boardTickTimer = null;
 
 try {
   const storedTheme = window.localStorage?.getItem('farzin_board_theme');
   if (storedTheme === 'light' || storedTheme === 'dark') currentTheme = storedTheme;
+  const storedMotion = window.localStorage?.getItem(MAIN_MOTION_KEY);
+  if (storedMotion === 'off') mainMotionEnabled = false;
 } catch {}
 
 function esc(value) {
@@ -489,10 +509,6 @@ function renderSideCardHtml(item, extraClass = '') {
 function applyThemeAndDesignTokens() {
   const rootEl = document.documentElement;
   if (!rootEl || !rootEl.style) return;
-  if (rootEl.setAttribute) rootEl.setAttribute('data-theme', currentTheme);
-
-  const themeBtn = $('themeToggleBtn');
-  if (themeBtn) themeBtn.textContent = currentTheme === 'dark' ? 'نمای روشن' : 'نمای تیره';
 
   const bc = settings.boardConfig || {};
   const cols = Math.min(3, Math.max(1, Number(bc.mainColumns) || 2));
@@ -504,6 +520,16 @@ function applyThemeAndDesignTokens() {
   const watermarkOpacity = Number(settings.watermarkOpacity) > 0
     ? Math.min(0.12, Number(settings.watermarkOpacity) / 100)
     : 0;
+  const showFrame = settings.showFrame !== false;
+
+  const tokenSig = `${currentTheme}|${cols}|${sidePercent}|${gap}|${mainScale}|${sideScale}|${tickerSize}|${watermarkOpacity}|${showFrame}|${settings.bgColor}|${settings.goldColor}|${settings.textColor}|${settings.mutedColor}`;
+  if (tokenSig === lastThemeTokenSig) return;
+  lastThemeTokenSig = tokenSig;
+
+  if (rootEl.setAttribute) rootEl.setAttribute('data-theme', currentTheme);
+
+  const themeBtn = $('themeToggleBtn');
+  if (themeBtn) themeBtn.textContent = currentTheme === 'dark' ? 'نمای روشن' : 'نمای تیره';
 
   rootEl.style.setProperty('--board-cols', String(cols));
   rootEl.style.setProperty('--board-side-width', `${sidePercent}%`);
@@ -531,7 +557,7 @@ function applyThemeAndDesignTokens() {
   }
 
   const shell = $('boardShell');
-  if (shell && shell.classList) shell.classList.toggle('has-frame', settings.showFrame !== false);
+  if (shell && shell.classList) shell.classList.toggle('has-frame', showFrame);
   const wm = $('boardWatermark');
   if (wm) wm.hidden = !(watermarkOpacity > 0);
 }
@@ -548,25 +574,38 @@ function getTickerMessage() {
 
 function updateChronosAndStatus() {
   const bc = settings.boardConfig || {};
-  const clockEl = $('tehranClock');
-  if (clockEl) clockEl.textContent = tehranClock();
+  const showClock = bc.showClock !== false;
   const clockWrap = $('clockWrap');
-  if (clockWrap) clockWrap.hidden = bc.showClock === false;
+  if (clockWrap && clockWrap.hidden !== !showClock) clockWrap.hidden = !showClock;
+  if (showClock) {
+    const clockStr = tehranClock();
+    if (clockStr !== lastClockDisplay) {
+      lastClockDisplay = clockStr;
+      const clockEl = $('tehranClock');
+      if (clockEl) clockEl.textContent = clockStr;
+    }
+  }
 
   const date = dateInfo();
-  const jalaliEl = $('jalaliDateText');
-  const gregEl = $('gregorianDateText');
-  const datesWrap = $('datesWrap');
-  if (jalaliEl) {
-    jalaliEl.textContent = `${date.weekday} · ${date.jalali}`;
-    jalaliEl.hidden = bc.showJalaliDate === false;
-  }
-  if (gregEl) {
-    gregEl.textContent = date.greg;
-    gregEl.hidden = bc.showGregorianDate === false;
-  }
-  if (datesWrap) {
-    datesWrap.hidden = bc.showJalaliDate === false && bc.showGregorianDate === false;
+  const showJalali = bc.showJalaliDate !== false;
+  const showGreg = bc.showGregorianDate !== false;
+  const dateSig = `${date.greg}|${date.jalali}|${showJalali}|${showGreg}`;
+  if (dateSig !== lastRenderedDateSig) {
+    lastRenderedDateSig = dateSig;
+    const jalaliEl = $('jalaliDateText');
+    const gregEl = $('gregorianDateText');
+    const datesWrap = $('datesWrap');
+    if (jalaliEl) {
+      jalaliEl.textContent = `${date.weekday} · ${date.jalali}`;
+      jalaliEl.hidden = !showJalali;
+    }
+    if (gregEl) {
+      gregEl.textContent = date.greg;
+      gregEl.hidden = !showGreg;
+    }
+    if (datesWrap) {
+      datesWrap.hidden = !showJalali && !showGreg;
+    }
   }
 
   updateConnectionStatus();
@@ -577,7 +616,9 @@ function fitBoardNumbers() {
   const nodes = document.querySelectorAll(
     '.quote-price:not(.is-missing), .rate-single-price:not(.is-missing), .side-quote-value:not(.is-missing), .side-single-price:not(.is-missing)'
   );
-  const vw = Number(window.innerWidth) || 0;
+  const vw = document?.documentElement?.classList?.contains('fz-rotate-landscape')
+    ? Math.max(Number(window.innerWidth) || 0, Number(window.innerHeight) || 0)
+    : (Number(window.innerWidth) || 0);
   const toCheck = [];
   for (const el of nodes) {
     if (!el || !el.style) continue;
@@ -631,7 +672,7 @@ function syncOverflowClones(trackId, viewportId) {
   if (!primary) return;
 
   const cloneEl = track.querySelector?.('[data-loop-clone="true"]');
-  const canScrollViewport = (Number(window.innerWidth) || 0) >= 1024 && (Number(window.innerHeight) || 0) >= 620;
+  const canScrollViewport = isDesktopLockedViewport() && mainMotionEnabled;
   const overflows = canScrollViewport && primary.scrollHeight > viewport.clientHeight + 8;
 
   if (overflows) {
@@ -645,15 +686,26 @@ function syncOverflowClones(trackId, viewportId) {
     }
   } else {
     if (cloneEl && cloneEl.remove) cloneEl.remove();
-    if (track.style) track.style.transform = '';
-    cardScrollOffset = 0;
+    if (!mainMotionEnabled) {
+      // Keep stationary cleanly when Motion OFF is persisted/resized
+      if (track.style) track.style.transform = '';
+      cardScrollOffset = 0;
+    } else {
+      if (track.style) track.style.transform = '';
+      cardScrollOffset = 0;
+    }
   }
   measureMotionGeometry();
   ensureMotionLoop();
 }
 
 function isDesktopLockedViewport() {
-  return (Number(window.innerWidth) || 0) >= 1024 && (Number(window.innerHeight) || 0) >= 620;
+  const rootCls = document?.documentElement?.classList;
+  if (rootCls?.contains('fz-rotate-landscape')) return true;
+  const w = Number(window.innerWidth) || 0;
+  const h = Number(window.innerHeight) || 0;
+  if (rootCls?.contains('fz-display-tv') && w >= h && w >= 720) return true;
+  return w >= 1024 && h >= 620;
 }
 
 function visibleSideSlice(side, startIdx, cap) {
@@ -833,15 +885,57 @@ function cardStructureSig(list) {
   ].join('|')).join('~');
 }
 
+function getCardRefs(el, isSide) {
+  let refs = cardRefCache?.get(el);
+  if (refs) return refs;
+  refs = {
+    singleEl: el.querySelector(isSide ? '.side-single-price' : '.rate-single-price'),
+    buyEl: el.querySelector(isSide ? '.side-quote-value.is-buy' : '.quote-price.is-buy'),
+    sellEl: el.querySelector(isSide ? '.side-quote-value.is-sell' : '.quote-price.is-sell'),
+    metaEl: el.querySelector(isSide ? '.side-card-meta' : '.rate-card-meta'),
+    trendEl: null,
+    arrowEl: null,
+    valEl: null,
+    rangeEl: el.querySelector('.card-range'),
+    boundLowEl: null,
+    boundHighEl: null,
+    fillEl: null,
+    dotEl: null,
+    prevTick: ''
+  };
+  if (refs.metaEl) {
+    refs.trendEl = refs.metaEl.querySelector('.rate-trend');
+    if (refs.trendEl) {
+      refs.arrowEl = refs.trendEl.querySelector('.rate-trend-arrow');
+      refs.valEl = refs.trendEl.querySelector('.rate-trend-value');
+    }
+  }
+  if (refs.rangeEl) {
+    const bounds = refs.rangeEl.querySelectorAll('.card-range-bound');
+    refs.boundLowEl = bounds[0] || null;
+    refs.boundHighEl = bounds[1] || null;
+    refs.fillEl = refs.rangeEl.querySelector('.card-range-fill');
+    refs.dotEl = refs.rangeEl.querySelector('.card-range-dot');
+  }
+  cardRefCache?.set(el, refs);
+  return refs;
+}
+
 function updateCardElement(el, item, isSide) {
   if (!el || !el.querySelector) return false;
+  const refs = getCardRefs(el, isSide);
   const rate = rateFor(item);
   let changed = false;
 
   const tick = activeBoardTicks.get(cardTickKey(item));
   const activeTick = tick && tick.expiresAt > Date.now() ? tick.dir : '';
-  el.classList?.toggle('is-tick-up', activeTick === 'up');
-  el.classList?.toggle('is-tick-down', activeTick === 'down');
+  if (refs.prevTick !== activeTick) {
+    refs.prevTick = activeTick;
+    el.classList?.toggle('is-tick-up', activeTick === 'up');
+    el.classList?.toggle('is-tick-down', activeTick === 'down');
+    if (activeTick) tickedCardElements.add(el);
+    else tickedCardElements.delete(el);
+  }
 
   const setText = (node, text, missing) => {
     if (!node) return;
@@ -849,70 +943,84 @@ function updateCardElement(el, item, isSide) {
       node.textContent = text;
       changed = true;
     }
-    node.classList?.toggle('is-missing', Boolean(missing));
+    const isMiss = Boolean(missing);
+    if (node.classList?.contains?.('is-missing') !== isMiss) {
+      node.classList?.toggle('is-missing', isMiss);
+    }
   };
 
   if (item.showTwoPrices === false) {
     const missing = rate?.price === '' || rate?.price === undefined || rate?.price === null;
     const price = missing ? 'در انتظار نرخ' : faNum(rate.price);
-    setText(el.querySelector(isSide ? '.side-single-price' : '.rate-single-price'), price, missing);
+    setText(refs.singleEl, price, missing);
   } else {
     const prices = quotePrices(rate, item);
-    setText(el.querySelector(isSide ? '.side-quote-value.is-buy' : '.quote-price.is-buy'), prices.buy, prices.missing);
-    setText(el.querySelector(isSide ? '.side-quote-value.is-sell' : '.quote-price.is-sell'), prices.sell, prices.missing);
+    setText(refs.buyEl, prices.buy, prices.missing);
+    setText(refs.sellEl, prices.sell, prices.missing);
   }
 
-  const metaEl = el.querySelector(isSide ? '.side-card-meta' : '.rate-card-meta');
-  if (metaEl) {
+  if (refs.metaEl) {
     const trend = trendMeta(rate);
-    const existingTrend = metaEl.querySelector('.rate-trend');
     if (!trend) {
-      if (existingTrend) {
-        existingTrend.remove();
+      if (refs.trendEl) {
+        refs.trendEl.remove();
+        refs.trendEl = null;
+        refs.arrowEl = null;
+        refs.valEl = null;
         changed = true;
       }
-    } else if (existingTrend) {
+    } else if (refs.trendEl) {
       const targetClass = `rate-trend rate-trend-glow fz-tabular ${trend.dir}`;
-      if (existingTrend.className !== targetClass) {
-        existingTrend.className = targetClass;
+      if (refs.trendEl.className !== targetClass) {
+        refs.trendEl.className = targetClass;
         changed = true;
       }
-      const arrowEl = existingTrend.querySelector('.rate-trend-arrow');
-      const valEl = existingTrend.querySelector('.rate-trend-value');
-      if (arrowEl && arrowEl.textContent !== trend.arrow) {
-        arrowEl.textContent = trend.arrow;
+      if (refs.arrowEl && refs.arrowEl.textContent !== trend.arrow) {
+        refs.arrowEl.textContent = trend.arrow;
         changed = true;
       }
-      if (valEl && valEl.textContent !== trend.value) {
-        valEl.textContent = trend.value;
+      if (refs.valEl && refs.valEl.textContent !== trend.value) {
+        refs.valEl.textContent = trend.value;
         changed = true;
       }
       const nextAria = `میزان تغییر نرخ ${trend.label}`;
-      if (existingTrend.getAttribute('aria-label') !== nextAria) existingTrend.setAttribute('aria-label', nextAria);
+      if (refs.trendEl.getAttribute('aria-label') !== nextAria) refs.trendEl.setAttribute('aria-label', nextAria);
     } else {
-      metaEl.insertAdjacentHTML('afterbegin', renderTrendGlowCardHtml(rate));
+      refs.metaEl.insertAdjacentHTML('afterbegin', renderTrendGlowCardHtml(rate));
+      refs.trendEl = refs.metaEl.querySelector('.rate-trend');
+      refs.arrowEl = refs.trendEl?.querySelector('.rate-trend-arrow') || null;
+      refs.valEl = refs.trendEl?.querySelector('.rate-trend-value') || null;
       changed = true;
     }
   }
 
   const range = rangeMeta(rate);
-  const existingRange = el.querySelector('.card-range');
   if (!range) {
-    if (existingRange) {
-      existingRange.remove();
+    if (refs.rangeEl) {
+      refs.rangeEl.remove();
+      refs.rangeEl = null;
+      refs.boundLowEl = null;
+      refs.boundHighEl = null;
+      refs.fillEl = null;
+      refs.dotEl = null;
       changed = true;
     }
-  } else if (existingRange) {
-    const bounds = existingRange.querySelectorAll('.card-range-bound');
-    const fill = existingRange.querySelector('.card-range-fill');
-    const dot = existingRange.querySelector('.card-range-dot');
+  } else if (refs.rangeEl) {
     const pctStr = `${range.pct}%`;
-    if (bounds[0] && bounds[0].textContent !== range.lowLabel) { bounds[0].textContent = range.lowLabel; changed = true; }
-    if (bounds[1] && bounds[1].textContent !== range.highLabel) { bounds[1].textContent = range.highLabel; changed = true; }
-    if (fill && fill.style.width !== pctStr) { fill.style.width = pctStr; changed = true; }
-    if (dot && dot.style.left !== pctStr) { dot.style.left = pctStr; changed = true; }
+    if (refs.boundLowEl && refs.boundLowEl.textContent !== range.lowLabel) { refs.boundLowEl.textContent = range.lowLabel; changed = true; }
+    if (refs.boundHighEl && refs.boundHighEl.textContent !== range.highLabel) { refs.boundHighEl.textContent = range.highLabel; changed = true; }
+    if (refs.fillEl && refs.fillEl.style.width !== pctStr) { refs.fillEl.style.width = pctStr; changed = true; }
+    if (refs.dotEl && refs.dotEl.style.left !== pctStr) { refs.dotEl.style.left = pctStr; changed = true; }
   } else {
     el.insertAdjacentHTML('beforeend', renderRangeHtml(rate));
+    refs.rangeEl = el.querySelector('.card-range');
+    if (refs.rangeEl) {
+      const bounds = refs.rangeEl.querySelectorAll('.card-range-bound');
+      refs.boundLowEl = bounds[0] || null;
+      refs.boundHighEl = bounds[1] || null;
+      refs.fillEl = refs.rangeEl.querySelector('.card-range-fill');
+      refs.dotEl = refs.rangeEl.querySelector('.card-range-dot');
+    }
     changed = true;
   }
   return changed;
@@ -933,57 +1041,68 @@ function render() {
   applyThemeAndDesignTokens();
   const bc = settings.boardConfig || {};
 
-  if ($('boardBrand')) $('boardBrand').textContent = settings.brand || DEFAULTS.brand;
-  if ($('boardSubtitle')) $('boardSubtitle').textContent = settings.subtitle || DEFAULTS.subtitle;
-  if ($('logoWrap')) $('logoWrap').hidden = settings.showLogo === false;
-
-  if ($('marketStatusWrap')) $('marketStatusWrap').hidden = bc.showMarketStatus === false;
-  const marketEl = $('marketStateText');
-  if (marketEl) {
-    const open = latestPayload?.market_open;
-    const label = open === true ? 'بازار باز است' : open === false ? 'بازار بسته است' : 'در حال بررسی بازار';
-    const nextCls = `telemetry-val ${open === true ? 'is-open' : open === false ? 'is-closed' : 'is-unknown'}`;
-    if (marketEl.className !== nextCls) marketEl.className = nextCls;
-    const textSpan = marketEl.querySelector?.('span:last-child');
-    if (textSpan) {
-      if (textSpan.textContent !== label) textSpan.textContent = label;
-    } else {
-      marketEl.innerHTML = `<span class="market-indicator" aria-hidden="true"></span><span>${esc(label)}</span>`;
-    }
-  }
-  if ($('lastQuoteTime')) {
-    const quoteText = latestPayload?.updated_at ? sourceTime(latestPayload.updated_at) : 'در انتظار نرخ';
-    if ($('lastQuoteTime').textContent !== quoteText) $('lastQuoteTime').textContent = quoteText;
-  }
-
-  const showMain = bc.showMainRates !== false;
-  const showSide = bc.showSideRates !== false;
-  const stage = $('boardStage');
-  if (stage && stage.classList) {
-    stage.classList.toggle('no-side', !showSide);
-    stage.classList.toggle('no-main', !showMain);
-  }
-  if ($('mainPanel')) $('mainPanel').hidden = !showMain;
-  if ($('sidePanel')) $('sidePanel').hidden = !showSide;
-  if ($('mainSectionTitle')) $('mainSectionTitle').textContent = settings.mainTitle || DEFAULTS.mainTitle;
-  if ($('sideSectionTitle')) $('sideSectionTitle').textContent = settings.sideTitle || DEFAULTS.sideTitle;
-
   const rows = mainRows();
   const side = sideRows();
-  if ($('mainCountLabel')) $('mainCountLabel').textContent = `${faNum(rows.length)} نماد فعال`;
-  if ($('sideCountLabel')) $('sideCountLabel').textContent = `${faNum(side.length)} نماد`;
-
+  const open = latestPayload?.market_open;
+  const label = open === true ? 'بازار باز است' : open === false ? 'بازار بسته است' : 'در حال بررسی بازار';
+  const quoteText = latestPayload?.updated_at ? sourceTime(latestPayload.updated_at) : 'در انتظار نرخ';
+  const showMain = bc.showMainRates !== false;
+  const showSide = bc.showSideRates !== false;
   const footerItems = (bc.footerLines || [])
     .filter(x => x.visible !== false && String(x.text || '').trim())
     .slice(0, 5);
-  const footerEl = $('boardFooter');
-  if (footerEl) footerEl.hidden = bc.showFooter === false && settings.showAttribution === false;
-  const footerLinesEl = $('footerLines');
-  if (footerLinesEl) {
-    const nextFooterHtml = bc.showFooter !== false
-      ? footerItems.map((line, i) => `${i > 0 ? '<span class="footer-sep" aria-hidden="true">·</span>' : ''}<span>${esc(line.text)}</span>`).join('')
-      : '';
-    if (footerLinesEl.innerHTML !== nextFooterHtml) footerLinesEl.innerHTML = nextFooterHtml;
+  const nextFooterHtml = bc.showFooter !== false
+    ? footerItems.map((line, i) => `${i > 0 ? '<span class="footer-sep" aria-hidden="true">·</span>' : ''}<span>${esc(line.text)}</span>`).join('')
+    : '';
+  const tickerLabelText = bc.tickerLabel || 'تازه‌ترین اخبار جهان';
+  const showTicker = bc.showNewsTicker !== false;
+
+  const headerSig = `${settings.brand || DEFAULTS.brand}|${settings.subtitle || DEFAULTS.subtitle}|${settings.showLogo !== false}|${bc.showMarketStatus !== false}|${open}|${quoteText}|${showMain}|${showSide}|${settings.mainTitle || DEFAULTS.mainTitle}|${settings.sideTitle || DEFAULTS.sideTitle}|${rows.length}|${side.length}|${bc.showFooter !== false}|${settings.showAttribution !== false}|${nextFooterHtml}|${showTicker}|${tickerLabelText}`;
+  if (headerSig !== lastHeaderSig) {
+    lastHeaderSig = headerSig;
+    if ($('boardBrand')) $('boardBrand').textContent = settings.brand || DEFAULTS.brand;
+    if ($('boardSubtitle')) $('boardSubtitle').textContent = settings.subtitle || DEFAULTS.subtitle;
+    if ($('logoWrap')) $('logoWrap').hidden = settings.showLogo === false;
+
+    if ($('marketStatusWrap')) $('marketStatusWrap').hidden = bc.showMarketStatus === false;
+    const marketEl = $('marketStateText');
+    if (marketEl) {
+      const nextCls = `telemetry-val ${open === true ? 'is-open' : open === false ? 'is-closed' : 'is-unknown'}`;
+      if (marketEl.className !== nextCls) marketEl.className = nextCls;
+      const textSpan = marketEl.querySelector?.('span:last-child');
+      if (textSpan) {
+        if (textSpan.textContent !== label) textSpan.textContent = label;
+      } else {
+        marketEl.innerHTML = `<span class="market-indicator" aria-hidden="true"></span><span>${esc(label)}</span>`;
+      }
+    }
+    if ($('lastQuoteTime') && $('lastQuoteTime').textContent !== quoteText) {
+      $('lastQuoteTime').textContent = quoteText;
+    }
+
+    const stage = $('boardStage');
+    if (stage && stage.classList) {
+      stage.classList.toggle('no-side', !showSide);
+      stage.classList.toggle('no-main', !showMain);
+    }
+    if ($('mainPanel')) $('mainPanel').hidden = !showMain;
+    if ($('sidePanel')) $('sidePanel').hidden = !showSide;
+    if ($('mainSectionTitle')) $('mainSectionTitle').textContent = settings.mainTitle || DEFAULTS.mainTitle;
+    if ($('sideSectionTitle')) $('sideSectionTitle').textContent = settings.sideTitle || DEFAULTS.sideTitle;
+
+    if ($('mainCountLabel')) $('mainCountLabel').textContent = `${faNum(rows.length)} نماد فعال`;
+    if ($('sideCountLabel')) $('sideCountLabel').textContent = `${faNum(side.length)} نماد`;
+
+    const footerEl = $('boardFooter');
+    if (footerEl) footerEl.hidden = bc.showFooter === false && settings.showAttribution === false;
+    const footerLinesEl = $('footerLines');
+    if (footerLinesEl && footerLinesEl.innerHTML !== nextFooterHtml) {
+      footerLinesEl.innerHTML = nextFooterHtml;
+    }
+
+    const tickerEl = $('boardTicker');
+    if (tickerEl) tickerEl.hidden = !showTicker;
+    if ($('tickerLabel')) $('tickerLabel').textContent = tickerLabelText;
   }
 
   const mainGrid = $('mainGrid');
@@ -997,7 +1116,9 @@ function render() {
         if (res) {
           fitBoardNumbers();
           const cloneEl = $('mainTrack')?.querySelector?.('[data-loop-clone="true"]');
-          if (cloneEl) cloneEl.innerHTML = mainGrid.innerHTML;
+          if (cloneEl) {
+            if (updateCardsInPlace(cloneEl, rows, false) === null) cloneEl.innerHTML = mainGrid.innerHTML;
+          }
           measureMotionGeometry();
         }
       }
@@ -1042,9 +1163,6 @@ function render() {
     }
   }
 
-  const tickerEl = $('boardTicker');
-  if (tickerEl) tickerEl.hidden = bc.showNewsTicker === false;
-  if ($('tickerLabel')) $('tickerLabel').textContent = bc.tickerLabel || 'تازه‌ترین اخبار جهان';
   const msg = getTickerMessage();
   if (msg !== lastNewsText) {
     lastNewsText = msg;
@@ -1058,15 +1176,40 @@ function render() {
   window.FarzinSpatialNav?.refreshFocusables?.();
 }
 
+function shouldRunMainMotion() {
+  return mainMotionEnabled && isDesktopLockedViewport() && cachedHasMainClone && cachedMainCyclePx > 0;
+}
+
+function shouldRunTickerMotion() {
+  return settings?.boardConfig?.showNewsTicker !== false && cachedTickerLoopWidth > 0;
+}
+
 function shouldRunMotionLoop() {
   if (document.hidden || cachedReducedMotion) return false;
-  const mainActive = isDesktopLockedViewport() && cachedHasMainClone && cachedMainCyclePx > 0;
-  const tickerActive = settings?.boardConfig?.showNewsTicker !== false && cachedTickerLoopWidth > 0;
-  return mainActive || tickerActive;
+  return shouldRunMainMotion() || shouldRunTickerMotion();
+}
+
+function syncAnimatingLayerHints() {
+  const mainTrack = $('mainTrack');
+  if (mainTrack?.classList) {
+    mainTrack.classList.toggle('is-animating', !document.hidden && !cachedReducedMotion && shouldRunMainMotion());
+  }
+  const tickerTrack = $('tickerTrack');
+  if (tickerTrack?.classList) {
+    tickerTrack.classList.toggle('is-animating', !document.hidden && !cachedReducedMotion && shouldRunTickerMotion());
+  }
 }
 
 function ensureMotionLoop() {
-  if (motionRafId || !shouldRunMotionLoop()) return;
+  syncAnimatingLayerHints();
+  if (!shouldRunMotionLoop()) {
+    if (motionRafId && typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(motionRafId);
+      motionRafId = 0;
+    }
+    return;
+  }
+  if (motionRafId) return;
   if (typeof window.requestAnimationFrame === 'function') {
     motionRafId = window.requestAnimationFrame(animateBoardMotion);
   }
@@ -1077,10 +1220,12 @@ function animateBoardMotion(timestamp) {
   const now = Number(timestamp) || Date.now();
   if (document.hidden || cachedReducedMotion) {
     tickerLastFrameAt = now;
+    syncAnimatingLayerHints();
     return;
   }
   if (!shouldRunMotionLoop()) {
     tickerLastFrameAt = 0;
+    syncAnimatingLayerHints();
     return;
   }
   if (isLowPowerMode && lastMotionPaintAt && (now - lastMotionPaintAt) < 32) {
@@ -1094,8 +1239,7 @@ function animateBoardMotion(timestamp) {
   tickerLastFrameAt = now;
   lastMotionPaintAt = now;
 
-  const canScrollViewport = isDesktopLockedViewport();
-  if (canScrollViewport && cachedHasMainClone && cachedMainCyclePx > 0) {
+  if (shouldRunMainMotion()) {
     const mainTrack = $('mainTrack');
     if (mainTrack && mainTrack.style) {
       const scrollSpeed = Math.max(5, Math.min(120, Number(settings?.boardConfig?.cardScrollSpeed) || 32));
@@ -1104,7 +1248,7 @@ function animateBoardMotion(timestamp) {
     }
   }
 
-  if (settings?.boardConfig?.showNewsTicker !== false && cachedTickerLoopWidth > 0) {
+  if (shouldRunTickerMotion()) {
     const track = $('tickerTrack');
     if (track && track.style) {
       const tickerSpeed = Math.max(5, Math.min(180, Number(settings?.boardConfig?.tickerSpeed) || 65));
@@ -1155,9 +1299,14 @@ function updateConnectionStatus() {
     : `دریافت نرخ از TGJU ناموفق بود · تلاش مجدد ${faNum(wait)} ثانیه`;
   else if (state === 'stale') label = `نمایش آخرین نرخ معتبر · تلاش مجدد ${faNum(wait)} ثانیه`;
 
-  s.textContent = label;
-  s.title = latestError || 'وضعیت اتصال بازار';
-  if (dot && dot.classList) {
+  const statusSig = `${label}|${latestError || ''}`;
+  if (statusSig !== lastStatusSig) {
+    lastStatusSig = statusSig;
+    s.textContent = label;
+    s.title = latestError || 'وضعیت اتصال بازار';
+  }
+  if (dot && dot.classList && state !== lastDotSig) {
+    lastDotSig = state;
     dot.classList.toggle('error', ['offline', 'missing', 'stale'].includes(state));
     dot.classList.toggle('partial', state === 'partial');
     dot.classList.toggle('online', ['online', 'partial'].includes(state));
@@ -1335,7 +1484,14 @@ async function refreshAll() {
       };
       const tickNow = Date.now();
       let anyBoardTick = false;
-      for (const item of [...mainRows(), ...sideRows()]) {
+      const activeItems = [...mainRows(), ...sideRows()];
+      if (configChanged && previousBoardPrices.size > activeItems.length * 2) {
+        const activeKeys = new Set(activeItems.map(cardTickKey));
+        for (const k of previousBoardPrices.keys()) {
+          if (!activeKeys.has(k)) previousBoardPrices.delete(k);
+        }
+      }
+      for (const item of activeItems) {
         const rate = rateFor(item);
         const curr = rate?.price !== '' && rate?.price !== null && rate?.price !== undefined ? Number(rate.price) : NaN;
         if (!Number.isFinite(curr) || curr <= 0) continue;
@@ -1354,11 +1510,12 @@ async function refreshAll() {
           for (const [k, info] of activeBoardTicks) {
             if (info.expiresAt <= nowTs) activeBoardTicks.delete(k);
           }
-          if (typeof document.querySelectorAll === 'function') {
-            document.querySelectorAll('.rate-card.is-tick-up, .rate-card.is-tick-down, .side-card.is-tick-up, .side-card.is-tick-down').forEach(el => {
-              el.classList?.remove('is-tick-up', 'is-tick-down');
-            });
+          for (const el of tickedCardElements) {
+            el.classList?.remove('is-tick-up', 'is-tick-down');
+            const refs = cardRefCache?.get(el);
+            if (refs) refs.prevTick = '';
           }
+          tickedCardElements.clear();
         }, 1850);
       }
       const failures = Object.entries(data.errors || {}).filter(([key]) => !['gram21'].includes(key));
@@ -1395,10 +1552,72 @@ async function refreshAll() {
   }
 }
 
+function syncMainMotionUi() {
+  const root = document.documentElement;
+  if (root?.classList) {
+    root.classList.toggle('fz-main-static', !mainMotionEnabled);
+    root.setAttribute?.('data-main-motion', mainMotionEnabled ? 'on' : 'off');
+  }
+  window.__farzinMainMotion = mainMotionEnabled ? 'on' : 'off';
+
+  const btn = $('motionToggleBtn');
+  if (btn) {
+    btn.textContent = mainMotionEnabled ? 'حرکت پنل · MOTION ON' : 'توقف پنل · MOTION OFF';
+    btn.setAttribute?.('aria-pressed', String(mainMotionEnabled));
+    btn.classList?.toggle('is-active', mainMotionEnabled);
+    btn.classList?.toggle('is-off', !mainMotionEnabled);
+  }
+}
+
+function setMainMotion(enabled, resetPosition = false) {
+  mainMotionEnabled = Boolean(enabled);
+  try {
+    window.localStorage?.setItem(MAIN_MOTION_KEY, mainMotionEnabled ? 'on' : 'off');
+  } catch {}
+  syncMainMotionUi();
+
+  if (!mainMotionEnabled) {
+    if (resetPosition) {
+      syncOverflowClones('mainTrack', 'mainViewport');
+    } else {
+      syncAnimatingLayerHints();
+      if (!shouldRunMotionLoop() && motionRafId && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(motionRafId);
+        motionRafId = 0;
+      }
+    }
+  } else {
+    tickerLastFrameAt = 0;
+    syncOverflowClones('mainTrack', 'mainViewport');
+    ensureMotionLoop();
+  }
+}
+
+function syncDisplayModeUi() {
+  const mgr = window.FarzinDisplayManager;
+  const status = mgr?.getStatus?.();
+  const displayBtn = $('displayModeBtn');
+  if (displayBtn && mgr && status) {
+    displayBtn.textContent = `نمایش: ${mgr.getModeLabelFa()}`;
+    displayBtn.setAttribute?.('data-mode', status.mode);
+    displayBtn.setAttribute?.('aria-label', `حالت نمایش فعلی: ${mgr.getModeLabelFa()}`);
+  }
+  const rotateBtn = $('rotateToggleBtn');
+  if (rotateBtn && status) {
+    rotateBtn.hidden = status.orientation !== 'portrait';
+    rotateBtn.textContent = status.isRotatedLandscape ? 'نمای عادی' : 'چرخش افقی کیوسک';
+    rotateBtn.setAttribute?.('aria-pressed', String(status.isRotatedLandscape));
+  }
+}
+
 $('fullscreenBtn')?.addEventListener('click', async () => {
   try {
-    if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
-    else await document.exitFullscreen();
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+      window.FarzinDisplayManager?.requestLandscapeOrientation?.();
+    } else {
+      await document.exitFullscreen();
+    }
   } catch (error) {
     console.warn(error);
   }
@@ -1408,6 +1627,23 @@ $('themeToggleBtn')?.addEventListener('click', () => {
   currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
   try { window.localStorage?.setItem('farzin_board_theme', currentTheme); } catch {}
   render();
+});
+
+$('motionToggleBtn')?.addEventListener('click', () => {
+  setMainMotion(!mainMotionEnabled, true);
+  revealBoardControls();
+});
+
+$('displayModeBtn')?.addEventListener('click', () => {
+  window.FarzinDisplayManager?.cycleMode?.();
+  syncDisplayModeUi();
+  revealBoardControls();
+});
+
+$('rotateToggleBtn')?.addEventListener('click', () => {
+  window.FarzinDisplayManager?.togglePortraitRotation?.();
+  syncDisplayModeUi();
+  revealBoardControls();
 });
 
 $('refreshBtn')?.addEventListener('click', async () => {
@@ -1428,6 +1664,7 @@ function handleResize() {
   stopSideRotation();
   sideVisibleCapacity = null;
   lastSideSignature = '';
+  syncDisplayModeUi();
   fitBoardNumbers();
   syncOverflowClones('mainTrack', 'mainViewport');
   renderSideQueueList(sideRows(), true);
@@ -1464,6 +1701,9 @@ function handleBoardKeyDown(event) {
     }
   } else if (key === 'r' || key === 'R') {
     $('refreshBtn')?.click?.();
+  } else if (key === 'm' || key === 'M') {
+    setMainMotion(!mainMotionEnabled, true);
+    revealBoardControls();
   } else if (key === 't' || key === 'T') {
     $('themeToggleBtn')?.click?.();
   } else if (key === 'f' || key === 'F') {
@@ -1473,10 +1713,66 @@ function handleBoardKeyDown(event) {
   }
 }
 
+const onOnline = () => { clearTimeout(refreshTimer); refreshAll(); };
+const onDisplayChange = () => {
+  syncDisplayModeUi();
+  handleResize();
+};
+const onVisibilityChange = () => {
+  if (!document.hidden) {
+    tickerLastFrameAt = 0;
+    lastMotionPaintAt = 0;
+    updateChronosAndStatus();
+    ensureMotionLoop();
+    syncSideRotation(sideRows().length, Number(sideVisibleCapacity) || sideRows().length);
+    clearTimeout(refreshTimer);
+    refreshAll();
+  } else {
+    stopSideRotation();
+    clearTimeout(refreshTimer);
+    syncAnimatingLayerHints();
+    if (motionRafId && typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(motionRafId);
+      motionRafId = 0;
+    }
+  }
+};
+
+function destroyBoard() {
+  stopSideRotation();
+  clearInterval(chronosTimer);
+  chronosTimer = null;
+  clearTimeout(refreshTimer);
+  refreshTimer = null;
+  clearTimeout(newsTimer);
+  newsTimer = null;
+  clearTimeout(controlHideTimer);
+  controlHideTimer = null;
+  clearTimeout(boardTickTimer);
+  boardTickTimer = null;
+  if (motionRafId && typeof window.cancelAnimationFrame === 'function') {
+    window.cancelAnimationFrame(motionRafId);
+    motionRafId = 0;
+  }
+  boardResizeObserver?.disconnect?.();
+  boardResizeObserver = null;
+  document.removeEventListener('mousemove', revealBoardControls);
+  document.removeEventListener('touchstart', revealBoardControls);
+  document.removeEventListener('keydown', handleBoardKeyDown);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+  window.removeEventListener('resize', handleResize);
+  window.removeEventListener('online', onOnline);
+  window.removeEventListener('farzin:displaychange', onDisplayChange);
+}
+
 document.addEventListener('mousemove', revealBoardControls);
 document.addEventListener('touchstart', revealBoardControls, { passive: true });
 document.addEventListener('keydown', handleBoardKeyDown);
-window.addEventListener('resize', handleResize);
+document.addEventListener('visibilitychange', onVisibilityChange);
+window.addEventListener('resize', handleResize, { passive: true });
+window.addEventListener('online', onOnline);
+window.addEventListener('farzin:displaychange', onDisplayChange);
+window.addEventListener('pagehide', destroyBoard, { once: true });
 document.fonts?.ready?.then(handleResize);
 if (typeof window.ResizeObserver === 'function') {
   let resizeRaf = 0;
@@ -1494,36 +1790,18 @@ if (typeof window.ResizeObserver === 'function') {
   if ($('sideViewport')) boardResizeObserver.observe($('sideViewport'));
 }
 
+syncMainMotionUi();
+syncDisplayModeUi();
 render();
 window.__farzinBoardBooted = true;
 if (window.__farzinBoardBootTimer) clearTimeout(window.__farzinBoardBootTimer);
 
-setInterval(() => {
+chronosTimer = setInterval(() => {
   if (!document.hidden) updateChronosAndStatus();
 }, 1000);
 refreshNews(true).finally(scheduleNews);
 refreshAll();
 ensureMotionLoop();
-
-window.addEventListener('online', () => { clearTimeout(refreshTimer); refreshAll(); });
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) {
-    tickerLastFrameAt = 0;
-    lastMotionPaintAt = 0;
-    updateChronosAndStatus();
-    ensureMotionLoop();
-    syncSideRotation(sideRows().length, Number(sideVisibleCapacity) || sideRows().length);
-    clearTimeout(refreshTimer);
-    refreshAll();
-  } else {
-    stopSideRotation();
-    clearTimeout(refreshTimer);
-    if (motionRafId && typeof window.cancelAnimationFrame === 'function') {
-      window.cancelAnimationFrame(motionRafId);
-      motionRafId = 0;
-    }
-  }
-});
 
 controlHideTimer = setTimeout(() => {
   const controls = $('boardControls');
@@ -1537,7 +1815,7 @@ function scheduleRefresh(delayMs) {
 }
 
 (() => {
-  if (isLowPowerMode) return;
+  if (isLowPowerMode || window.__farzinDisplayProfile === 'tv' || !mainMotionEnabled) return;
   if (typeof window.matchMedia !== 'function') return;
   if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
   if (cachedReducedMotion) return;
@@ -1572,8 +1850,11 @@ function scheduleRefresh(delayMs) {
     activeCard.style.setProperty('--tz', '12px');
   };
 
-  stage.addEventListener('pointermove', event => {
-    if (isLowPowerMode) return;
+  const onPointerMove = event => {
+    if (isLowPowerMode || window.__farzinDisplayProfile === 'tv' || !mainMotionEnabled) {
+      if (activeCard) { resetCard(activeCard); activeCard = null; }
+      return;
+    }
     const card = event.target?.closest?.('.rate-card, .side-card');
     if (activeCard && activeCard !== card) resetCard(activeCard);
     activeCard = card || null;
@@ -1585,9 +1866,9 @@ function scheduleRefresh(delayMs) {
     if (!rafId && typeof window.requestAnimationFrame === 'function') {
       rafId = window.requestAnimationFrame(updateTilt);
     }
-  }, { passive: true });
+  };
 
-  stage.addEventListener('pointerleave', () => {
+  const onPointerLeave = () => {
     latestPoint = null;
     if (rafId && typeof window.cancelAnimationFrame === 'function') {
       window.cancelAnimationFrame(rafId);
@@ -1597,5 +1878,12 @@ function scheduleRefresh(delayMs) {
       resetCard(activeCard);
       activeCard = null;
     }
-  });
+  };
+
+  stage.addEventListener('pointermove', onPointerMove, { passive: true });
+  stage.addEventListener('pointerleave', onPointerLeave);
+  window.addEventListener('pagehide', () => {
+    stage.removeEventListener('pointermove', onPointerMove);
+    stage.removeEventListener('pointerleave', onPointerLeave);
+  }, { once: true });
 })();

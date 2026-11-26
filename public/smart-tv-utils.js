@@ -2,7 +2,18 @@
 
 (() => {
   const PERF_STORAGE_KEY = 'farzin_perf_mode';
-  const TV_UA_RE = /Tizen|Web0S|webOS|SMART-TV|SmartTV|NetCast|Maple|HbbTV|BRAVIA|AFT|Android TV|GoogleTV|CrKey|Hisense|TCL|Roku|Viera|PhilipsTV|AQUOS|PHILIPS|SAMSUNG.*Browser|LG Browser|MiBox|SHIELD/i;
+  const DISPLAY_STORAGE_KEY = 'farzin_display_mode';
+  const ROTATE_STORAGE_KEY = 'farzin_kiosk_rotate';
+
+  const SMART_TV_BROWSER_RE = /Tizen|Web0S|webOS|SMART-TV|SmartTV|NetCast|Maple|HbbTV|Viera|Hisense|TCL|Roku|PhilipsTV|AQUOS|PHILIPS|SAMSUNG.*Browser|LG Browser|CrKey/i;
+  const ANDROID_TV_RE = /Android TV|GoogleTV|BRAVIA|AFT|Nexus Player|Leanback|Android.*\bTV\b/i;
+  const ANDROID_TV_BOX_RE = /MiBox|Mi Box|SHIELD|TVBOX|MXQ|TX3|H96|X96|Beelink|Mecool|T95|Ugoos|Tanix|Zidoo/i;
+  const ANDROID_WEBVIEW_RE = /;\s*wv\)|Android.*Version\/[\d.]+.*Chrome\/|AndroidInterface|ReactNativeWebView/i;
+  const TV_UA_RE = new RegExp(
+    [SMART_TV_BROWSER_RE.source, ANDROID_TV_RE.source, ANDROID_TV_BOX_RE.source].join('|'),
+    'i'
+  );
+
   const DEFAULT_FOCUS_SELECTOR = [
     'a[href]',
     'button:not([disabled])',
@@ -14,6 +25,328 @@
     '.rate-card',
     '.side-card'
   ].join(', ');
+
+  function matchMediaSafe(query) {
+    try {
+      return typeof window.matchMedia === 'function' ? window.matchMedia(query) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  class SmartDisplayManager {
+    constructor(options = {}) {
+      this.modeStorageKey = options.modeStorageKey || DISPLAY_STORAGE_KEY;
+      this.rotateStorageKey = options.rotateStorageKey || ROTATE_STORAGE_KEY;
+      this.state = {
+        mode: 'auto',
+        activeProfile: 'monitor',
+        category: 'desktop-monitor',
+        orientation: 'landscape',
+        resolutionTier: 'fhd',
+        portraitRotate: 'off',
+        isRotatedLandscape: false,
+        isTvDisplay: false,
+        signals: {}
+      };
+      this._resizeTimer = 0;
+      this._boundReeval = () => this._scheduleReeval();
+      this._boundOrientation = () => this.refresh();
+    }
+
+    _readModeOverride() {
+      try {
+        const search = String(window.location?.search || '');
+        const match = /[?&]display=(auto|tv|monitor)\b/i.exec(search);
+        if (match) return match[1].toLowerCase();
+        if (/[?&]tv=1\b/i.test(search)) return 'tv';
+        const stored = window.localStorage?.getItem(this.modeStorageKey);
+        if (stored === 'auto' || stored === 'tv' || stored === 'monitor') return stored;
+      } catch {}
+      return 'auto';
+    }
+
+    _readPortraitRotate() {
+      try {
+        const search = String(window.location?.search || '');
+        if (/[?&]rotate=1\b/i.test(search)) return 'on';
+        if (/[?&]rotate=0\b/i.test(search)) return 'off';
+        const stored = window.localStorage?.getItem(this.rotateStorageKey);
+        if (stored === 'on' || stored === 'off') return stored;
+      } catch {}
+      return 'off';
+    }
+
+    collectSignals() {
+      const ua = String(typeof navigator !== 'undefined' ? navigator?.userAgent || '' : '');
+      const scr = typeof window.screen !== 'undefined' ? window.screen : null;
+      const innerWidth = Math.max(0, Number(window.innerWidth) || 0);
+      const innerHeight = Math.max(0, Number(window.innerHeight) || 0);
+      const screenWidth = Math.max(0, Number(scr?.width) || innerWidth);
+      const screenHeight = Math.max(0, Number(scr?.height) || innerHeight);
+      const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
+
+      const physicalWidth = Math.round(Math.max(screenWidth, innerWidth) * dpr);
+      const physicalHeight = Math.round(Math.max(screenHeight, innerHeight) * dpr);
+      const majorDim = Math.max(innerWidth || screenWidth, innerHeight || screenHeight);
+      const minorDim = Math.max(1, Math.min(innerWidth || screenWidth, innerHeight || screenHeight));
+      const aspectRatio = Number((majorDim / minorDim).toFixed(3));
+      const is16by9 = Math.abs(aspectRatio - (16 / 9)) <= 0.16;
+
+      const screenOrientationType = String(scr?.orientation?.type || '');
+      const orientation = innerHeight > innerWidth
+        ? 'portrait'
+        : innerWidth >= innerHeight
+          ? 'landscape'
+          : (/portrait/i.test(screenOrientationType) ? 'portrait' : 'landscape');
+
+      const maxTouchPoints = Number(typeof navigator !== 'undefined' ? navigator?.maxTouchPoints : 0) || 0;
+      const hasTouch = Boolean(('ontouchstart' in window) || maxTouchPoints > 0);
+      const hasFinePointer = Boolean(matchMediaSafe('(pointer: fine)')?.matches);
+      const hasCoarsePointer = Boolean(matchMediaSafe('(pointer: coarse)')?.matches);
+      const canHover = Boolean(matchMediaSafe('(hover: hover)')?.matches);
+
+      const isAndroid = /Android/i.test(ua);
+      const isMobileUa = /Mobile|iPhone|iPod/i.test(ua);
+      const isAndroidWebView = isAndroid && ANDROID_WEBVIEW_RE.test(ua);
+      const isFullscreen = Boolean(document?.fullscreenElement);
+      const isStandalone = Boolean(matchMediaSafe('(display-mode: standalone)')?.matches || window.navigator?.standalone);
+      const supportsOrientationLock = Boolean(scr?.orientation && typeof scr.orientation.lock === 'function');
+      const supportsBackdrop = typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+        ? (CSS.supports('backdrop-filter', 'blur(4px)') || CSS.supports('-webkit-backdrop-filter', 'blur(4px)'))
+        : true;
+
+      let resolutionTier = 'compact';
+      const effectiveW = Math.max(innerWidth, physicalWidth >= 3200 ? physicalWidth : innerWidth);
+      if (physicalWidth >= 3200 || innerWidth >= 3200) resolutionTier = '4k';
+      else if (effectiveW >= 1700) resolutionTier = 'fhd';
+      else if (effectiveW >= 1180) resolutionTier = 'hd';
+
+      return {
+        ua,
+        innerWidth,
+        innerHeight,
+        screenWidth,
+        screenHeight,
+        dpr,
+        physicalWidth,
+        physicalHeight,
+        aspectRatio,
+        is16by9,
+        orientation,
+        screenOrientationType,
+        maxTouchPoints,
+        hasTouch,
+        hasFinePointer,
+        hasCoarsePointer,
+        canHover,
+        isAndroid,
+        isMobileUa,
+        isAndroidWebView,
+        isFullscreen,
+        isStandalone,
+        supportsOrientationLock,
+        supportsBackdrop,
+        resolutionTier
+      };
+    }
+
+    classifyCategory(signals) {
+      const ua = signals.ua;
+      if (ANDROID_TV_RE.test(ua)) return 'android-tv';
+      if (ANDROID_TV_BOX_RE.test(ua)) return 'android-tv-box';
+      if (SMART_TV_BROWSER_RE.test(ua)) return 'smart-tv-browser';
+
+      // Multi-signal heuristic for unbranded Android TV Boxes & Android television WebViews
+      if (signals.isAndroid) {
+        const noTouch = !signals.hasTouch && signals.maxTouchPoints === 0;
+        const noHoverNoFine = !signals.canHover && !signals.hasFinePointer;
+        const tvViewport = signals.orientation === 'landscape' && signals.innerWidth >= 900 && signals.is16by9;
+        if (signals.isAndroidWebView && (noTouch || tvViewport)) return 'android-tv-box';
+        if ((noTouch || !signals.isMobileUa) && (tvViewport || noHoverNoFine)) return 'android-tv-device';
+      }
+
+      // Large signage / kiosk display (fullscreen/standalone large screen, or non-touch large 16:9 / portrait signage)
+      if (
+        (signals.isStandalone || signals.isFullscreen) && (signals.innerWidth >= 1200 || signals.innerHeight >= 1200)
+        || (signals.physicalWidth >= 2560 && !signals.hasTouch && !signals.hasFinePointer)
+        || (signals.orientation === 'portrait' && !signals.hasTouch && signals.innerHeight >= 900)
+      ) {
+        return 'kiosk-display';
+      }
+
+      if (signals.hasFinePointer && signals.canHover && signals.innerWidth >= 1024) {
+        return 'desktop-monitor';
+      }
+      if (!signals.hasTouch && signals.innerWidth >= 900) {
+        return 'desktop-monitor';
+      }
+      return 'pc-browser';
+    }
+
+    detect() {
+      const signals = this.collectSignals();
+      const category = this.classifyCategory(signals);
+      const mode = this._readModeOverride();
+      const portraitRotate = this._readPortraitRotate();
+
+      let activeProfile = 'monitor';
+      if (mode === 'tv') {
+        activeProfile = 'tv';
+      } else if (mode === 'monitor') {
+        activeProfile = 'monitor';
+      } else {
+        const autoTvCategories = new Set(['android-tv', 'android-tv-box', 'smart-tv-browser', 'android-tv-device']);
+        const nonInteractiveLargeScreen = !signals.hasFinePointer && !signals.canHover && !signals.hasTouch && signals.innerWidth >= 800;
+        activeProfile = (autoTvCategories.has(category) || nonInteractiveLargeScreen) ? 'tv' : 'monitor';
+      }
+
+      const isTvDisplay = activeProfile === 'tv';
+      const isRotatedLandscape = signals.orientation === 'portrait' && portraitRotate === 'on';
+
+      return {
+        mode,
+        activeProfile,
+        category,
+        orientation: signals.orientation,
+        resolutionTier: signals.resolutionTier,
+        portraitRotate,
+        isRotatedLandscape,
+        isTvDisplay,
+        signals
+      };
+    }
+
+    apply(nextState) {
+      const prev = this.state;
+      this.state = nextState;
+
+      window.__farzinDisplayMode = nextState.mode;
+      window.__farzinDisplayProfile = nextState.activeProfile;
+      window.__farzinDisplayCategory = nextState.category;
+      window.__farzinIsTvDisplay = nextState.isTvDisplay;
+      window.__farzinRotatedLandscape = nextState.isRotatedLandscape;
+
+      const root = document?.documentElement;
+      if (root?.classList) {
+        root.classList.toggle('fz-display-tv', nextState.activeProfile === 'tv');
+        root.classList.toggle('fz-display-monitor', nextState.activeProfile === 'monitor');
+        root.classList.toggle('fz-mode-auto', nextState.mode === 'auto');
+        root.classList.toggle('fz-mode-tv', nextState.mode === 'tv');
+        root.classList.toggle('fz-mode-monitor', nextState.mode === 'monitor');
+        root.classList.toggle('fz-landscape', nextState.orientation === 'landscape');
+        root.classList.toggle('fz-portrait', nextState.orientation === 'portrait');
+        root.classList.toggle('fz-rotate-landscape', nextState.isRotatedLandscape);
+        root.setAttribute?.('data-display-mode', nextState.mode);
+        root.setAttribute?.('data-display-profile', nextState.activeProfile);
+        root.setAttribute?.('data-display-category', nextState.category);
+        root.setAttribute?.('data-resolution-tier', nextState.resolutionTier);
+      }
+
+      const changed = prev.mode !== nextState.mode
+        || prev.activeProfile !== nextState.activeProfile
+        || prev.category !== nextState.category
+        || prev.orientation !== nextState.orientation
+        || prev.resolutionTier !== nextState.resolutionTier
+        || prev.isRotatedLandscape !== nextState.isRotatedLandscape;
+
+      if (changed && typeof window.dispatchEvent === 'function' && typeof window.CustomEvent === 'function') {
+        try {
+          window.dispatchEvent(new window.CustomEvent('farzin:displaychange', { detail: this.getStatus() }));
+        } catch {}
+      }
+      return this.state;
+    }
+
+    refresh() {
+      const next = this.apply(this.detect());
+      if (window.FarzinPerformanceManager) {
+        window.FarzinPerformanceManager.refresh();
+      }
+      return next;
+    }
+
+    setMode(mode) {
+      const next = (mode === 'tv' || mode === 'monitor') ? mode : 'auto';
+      try {
+        window.localStorage?.setItem(this.modeStorageKey, next);
+      } catch {}
+      if (next === 'tv') this.requestLandscapeOrientation();
+      return this.refresh();
+    }
+
+    cycleMode() {
+      const order = ['auto', 'tv', 'monitor'];
+      const idx = order.indexOf(this.state.mode);
+      return this.setMode(order[(idx + 1) % order.length]);
+    }
+
+    setPortraitRotation(enabled) {
+      const next = enabled ? 'on' : 'off';
+      try {
+        window.localStorage?.setItem(this.rotateStorageKey, next);
+      } catch {}
+      if (enabled) this.requestLandscapeOrientation();
+      return this.refresh();
+    }
+
+    togglePortraitRotation() {
+      return this.setPortraitRotation(this.state.portraitRotate !== 'on');
+    }
+
+    requestLandscapeOrientation() {
+      try {
+        const lock = window.screen?.orientation?.lock;
+        if (typeof lock === 'function') {
+          const result = lock.call(window.screen.orientation, 'landscape');
+          if (result && typeof result.catch === 'function') result.catch(() => {});
+        }
+      } catch {}
+    }
+
+    getModeLabelFa() {
+      if (this.state.mode === 'tv') return 'حالت تلویزیون';
+      if (this.state.mode === 'monitor') return 'حالت مانیتور';
+      return this.state.activeProfile === 'tv' ? 'خودکار (تلویزیون)' : 'خودکار (مانیتور)';
+    }
+
+    getStatus() {
+      return {
+        ...this.state,
+        signals: { ...this.state.signals }
+      };
+    }
+
+    _scheduleReeval() {
+      if (this._resizeTimer) clearTimeout(this._resizeTimer);
+      this._resizeTimer = setTimeout(() => {
+        this._resizeTimer = 0;
+        this.refresh();
+      }, 90);
+    }
+
+    init() {
+      this.apply(this.detect());
+      window.addEventListener?.('resize', this._boundReeval, { passive: true });
+      window.addEventListener?.('orientationchange', this._boundOrientation, { passive: true });
+      try {
+        window.screen?.orientation?.addEventListener?.('change', this._boundOrientation);
+      } catch {}
+      return this;
+    }
+
+    destroy() {
+      if (this._resizeTimer) {
+        clearTimeout(this._resizeTimer);
+        this._resizeTimer = 0;
+      }
+      window.removeEventListener?.('resize', this._boundReeval);
+      window.removeEventListener?.('orientationchange', this._boundOrientation);
+      try {
+        window.screen?.orientation?.removeEventListener?.('change', this._boundOrientation);
+      } catch {}
+    }
+  }
 
   class PerformanceModeManager {
     constructor(options = {}) {
@@ -47,8 +380,12 @@
     detect() {
       const reasons = [];
       const ua = String(typeof navigator !== 'undefined' ? navigator?.userAgent || '' : '');
-      const isTv = TV_UA_RE.test(ua);
-      if (isTv) reasons.push('smart-tv-ua');
+      const displayState = window.FarzinDisplayManager?.state;
+      const uaIsTv = TV_UA_RE.test(ua);
+      const displayProfile = displayState?.activeProfile || (window.__farzinDisplayProfile || (uaIsTv ? 'tv' : 'monitor'));
+      const displayMode = displayState?.mode || (window.__farzinDisplayMode || 'auto');
+      const isTv = displayProfile === 'tv' || (displayMode === 'auto' && uaIsTv);
+      if (isTv) reasons.push(`tv-profile:${displayState?.category || 'ua'}`);
 
       const cores = Number(typeof navigator !== 'undefined' ? navigator?.hardwareConcurrency : NaN);
       const weakCpu = Number.isFinite(cores) && cores > 0 && cores <= 4;
@@ -64,10 +401,7 @@
       if (saveData) reasons.push('save-data');
       if (slowNet) reasons.push(`slow-network:${conn.effectiveType}`);
 
-      const reducedMotion = Boolean(
-        typeof window.matchMedia === 'function' &&
-        window.matchMedia('(prefers-reduced-motion: reduce)')?.matches
-      );
+      const reducedMotion = Boolean(matchMediaSafe('(prefers-reduced-motion: reduce)')?.matches);
       if (reducedMotion) reasons.push('reduced-motion');
 
       const hasCssSupports = typeof CSS !== 'undefined' && typeof CSS.supports === 'function';
@@ -84,6 +418,7 @@
       const supportsContainment = hasCssSupports ? CSS.supports('contain', 'layout style paint') : true;
 
       const override = this._readOverride();
+      // Forcing TV Mode engages the dedicated low-resource TV rendering profile automatically
       let isLowPower = isTv || weakCpu || weakRam || saveData || slowNet || reducedMotion || !supportsBackdrop;
       if (override === 'low') {
         isLowPower = true;
@@ -210,9 +545,9 @@
 
     init() {
       this.refresh();
-      if (typeof window.matchMedia === 'function' && !this._mediaQuery) {
+      this._mediaQuery = matchMediaSafe('(prefers-reduced-motion: reduce)');
+      if (this._mediaQuery) {
         try {
-          this._mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
           if (typeof this._mediaQuery.addEventListener === 'function') {
             this._mediaQuery.addEventListener('change', this._onMotionChange);
           } else if (typeof this._mediaQuery.addListener === 'function') {
@@ -226,6 +561,22 @@
         window.addEventListener?.('load', () => setTimeout(() => this.startFpsWatchdog(), 600), { once: true });
       }
       return this;
+    }
+
+    destroy() {
+      if (this._rafId && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(this._rafId);
+        this._rafId = 0;
+      }
+      if (this._mediaQuery) {
+        try {
+          if (typeof this._mediaQuery.removeEventListener === 'function') {
+            this._mediaQuery.removeEventListener('change', this._onMotionChange);
+          } else if (typeof this._mediaQuery.removeListener === 'function') {
+            this._mediaQuery.removeListener(this._onMotionChange);
+          }
+        } catch {}
+      }
     }
   }
 
@@ -338,6 +689,7 @@
       const key = event?.key || '';
       const code = Number(event?.keyCode || event?.which) || 0;
       if (key === 'Enter' || key === 'Select' || code === 13 || code === 23) return 'enter';
+      if (key === ' ' || key === 'Spacebar' || code === 32) return 'space';
       if (key === 'Escape' || key === 'Esc' || key === 'XF86Back' || key === 'BrowserBack' || key === 'GoBack' || code === 27 || code === 461 || code === 10009) {
         return 'back';
       }
@@ -362,7 +714,6 @@
     _findBestCandidate(current, candidates, dir) {
       if (!candidates.length) return null;
       if (!current || current === document.body || current === document.documentElement || !this._isVisibleElement(current)) {
-        // Default initial focus: first main rate card, tab, or primary button
         return candidates.find(el => el.classList?.contains('rate-card')) || candidates[0];
       }
 
@@ -406,7 +757,6 @@
         }
 
         if (!inDir) continue;
-        // Strongly reward candidates aligned along the movement corridor
         const overlapCross = (dir === 'left' || dir === 'right')
           ? Math.max(0, Math.min(cr.bottom, r.bottom) - Math.max(cr.top, r.top))
           : Math.max(0, Math.min(cr.right, r.right) - Math.max(cr.left, r.left));
@@ -430,7 +780,13 @@
         el.focus();
       }
       this._syncFocusedClass(el);
-      if (typeof el.scrollIntoView === 'function') {
+
+      const root = document?.documentElement;
+      const isLockedViewport = Boolean(
+        root?.classList?.contains('fz-rotate-landscape')
+        || root?.classList?.contains('fz-display-tv')
+      );
+      if (!isLockedViewport && typeof el.scrollIntoView === 'function') {
         try {
           el.scrollIntoView({
             block: 'nearest',
@@ -449,7 +805,6 @@
       let candidates = this.getFocusables();
       let next = this._findBestCandidate(active, candidates, dir);
 
-      // On the live board, pressing Up from the top row reveals the hidden controls dock and focuses into it
       if (!next && dir === 'up') {
         const controls = document.getElementById('boardControls');
         if (controls && controls.classList?.contains('hidden')) {
@@ -491,7 +846,9 @@
         return;
       }
 
-      if (action === 'enter') {
+      if (action === 'enter' || action === 'space') {
+        const tag = active?.tagName?.toUpperCase() || '';
+        if (action === 'space' && ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
         this._enableSpatialRing();
         if (!active || active === document.body || active === document.documentElement) {
           const first = this.getFocusables()[0];
@@ -501,11 +858,10 @@
           }
           return;
         }
-        const tag = active.tagName?.toUpperCase() || '';
         if (active.classList?.contains('rate-card') || active.classList?.contains('side-card')) {
           if (this.onRevealControls) this.onRevealControls();
-          const refreshBtn = document.getElementById('refreshBtn');
-          if (refreshBtn) this.focusElement(refreshBtn);
+          const targetBtn = document.getElementById('motionToggleBtn') || document.getElementById('refreshBtn');
+          if (targetBtn) this.focusElement(targetBtn);
           event.preventDefault();
           return;
         }
@@ -554,6 +910,10 @@
     }
   }
 
+  const displayManager = new SmartDisplayManager().init();
+  window.SmartDisplayManager = SmartDisplayManager;
+  window.FarzinDisplayManager = displayManager;
+
   const perfManager = new PerformanceModeManager().init();
   const spatialNav = new SpatialNavigationController();
 
@@ -563,6 +923,12 @@
   } else {
     bootNav();
   }
+
+  window.addEventListener?.('pagehide', () => {
+    displayManager.destroy();
+    perfManager.destroy();
+    spatialNav.destroy();
+  }, { once: true });
 
   window.PerformanceModeManager = PerformanceModeManager;
   window.SpatialNavigationController = SpatialNavigationController;

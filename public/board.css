@@ -376,7 +376,6 @@ html[data-theme="light"] .masthead-logo {
   grid-template-columns: minmax(0, 1fr) minmax(220px, var(--board-side-width));
   gap: max(12px, calc(1.4 * var(--u)));
   min-height: 0;
-  perspective: 1400px;
 }
 
 .board-stage.no-side {
@@ -441,6 +440,9 @@ html[data-theme="light"] .masthead-logo {
   display: flex;
   flex-direction: column;
   gap: var(--board-gap);
+}
+
+.stage-track.is-animating {
   will-change: transform;
 }
 
@@ -449,10 +451,9 @@ html[data-theme="light"] .masthead-logo {
   display: grid;
   grid-template-columns: repeat(var(--board-cols), minmax(0, 1fr));
   gap: var(--board-gap);
-  transform-style: preserve-3d;
 }
 
-/* 3D Glassmorphic Rate Card with Animated Conic Border Light */
+/* Glassmorphic Rate Card with Lightweight Defaults */
 .rate-card {
   position: relative;
   display: flex;
@@ -462,19 +463,16 @@ html[data-theme="light"] .masthead-logo {
   min-height: max(126px, calc(7.8 * var(--u)));
   padding: max(12px, calc(0.92 * var(--u))) max(14px, calc(1.25 * var(--u)));
   line-height: 1.3;
-  background:
-    radial-gradient(360px circle at var(--mx, 50%) var(--my, 15%), rgba(197, 168, 117, 0.12), transparent 62%),
-    var(--board-surface);
-  -webkit-backdrop-filter: blur(18px) saturate(120%);
-  backdrop-filter: blur(18px) saturate(120%);
+  background: var(--board-surface);
+  -webkit-backdrop-filter: blur(16px) saturate(118%);
+  backdrop-filter: blur(16px) saturate(118%);
   border: 1px solid var(--board-line-subtle);
   border-radius: max(12px, calc(0.86 * var(--u)));
   box-shadow: var(--board-card-shadow), var(--board-inner-glow);
   min-width: 0;
   overflow: hidden;
   contain: layout style paint;
-  transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(var(--tz, 0px));
-  transition: transform 260ms var(--board-ease), border-color var(--board-duration) var(--board-ease), box-shadow 260ms var(--board-ease), background-color var(--board-duration) var(--board-ease);
+  transition: border-color var(--board-duration) var(--board-ease), background-color var(--board-duration) var(--board-ease);
 }
 
 .rate-card::before {
@@ -816,7 +814,6 @@ html[data-theme="light"] .rate-trend.flat {
   display: flex;
   flex-direction: column;
   gap: max(9px, calc(0.72 * var(--u)));
-  transform-style: preserve-3d;
 }
 
 .side-card {
@@ -828,18 +825,15 @@ html[data-theme="light"] .rate-trend.flat {
   min-height: max(98px, calc(5.9 * var(--u)));
   padding: max(10px, calc(0.76 * var(--u))) max(12px, calc(1.04 * var(--u)));
   line-height: 1.3;
-  background:
-    radial-gradient(280px circle at var(--mx, 50%) var(--my, 15%), rgba(197, 168, 117, 0.12), transparent 60%),
-    var(--board-surface);
-  -webkit-backdrop-filter: blur(16px) saturate(120%);
-  backdrop-filter: blur(16px) saturate(120%);
+  background: var(--board-surface);
+  -webkit-backdrop-filter: blur(14px) saturate(118%);
+  backdrop-filter: blur(14px) saturate(118%);
   border: 1px solid var(--board-line-subtle);
   border-radius: max(10px, calc(0.74 * var(--u)));
   box-shadow: var(--board-card-shadow), var(--board-inner-glow);
   overflow: hidden;
   contain: layout style paint;
-  transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(var(--tz, 0px));
-  transition: transform 260ms var(--board-ease), border-color var(--board-duration) var(--board-ease), box-shadow 260ms var(--board-ease), opacity 260ms var(--board-ease);
+  transition: border-color var(--board-duration) var(--board-ease), opacity 240ms var(--board-ease);
 }
 
 .side-card.is-fading-out {
@@ -1195,8 +1189,11 @@ html[data-theme="light"] .rate-trend.flat {
   display: flex;
   align-items: center;
   white-space: nowrap;
-  will-change: transform;
   direction: ltr;
+}
+
+.ticker-track.is-animating {
+  will-change: transform;
 }
 
 .ticker-copy {
@@ -1217,6 +1214,7 @@ html[data-theme="light"] .rate-trend.flat {
   top: clamp(10px, 1.1vw, 20px);
   inset-inline-end: clamp(10px, 1.1vw, 20px);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   max-width: calc(100vw - 20px);
@@ -1280,6 +1278,23 @@ html[data-theme="light"] .board-controls {
   background-color: var(--board-gold-soft);
   outline: 2px solid var(--board-gold-strong);
   outline-offset: 2px;
+}
+
+#motionToggleBtn.is-active {
+  border-color: rgba(164, 198, 144, 0.56);
+  color: #CFE3C1;
+  background-color: rgba(164, 198, 144, 0.12);
+}
+
+#motionToggleBtn.is-off {
+  border-color: rgba(197, 168, 117, 0.62);
+  color: var(--board-gold-strong);
+  background-color: rgba(197, 168, 117, 0.15);
+}
+
+#displayModeBtn[data-mode="tv"] {
+  border-color: rgba(197, 168, 117, 0.65);
+  background-color: rgba(197, 168, 117, 0.14);
 }
 
 .board-controls .farzin-logout {
@@ -1478,75 +1493,357 @@ html[data-theme="light"] .board-controls {
   }
 }
 
-/* Smart TV & Low-Power Hardware Mode */
-html.fz-low-power {
-  --board-surface: rgba(43, 29, 22, 0.94);
-  --board-surface-elevated: rgba(56, 38, 29, 0.97);
-  --board-surface-inset: #19100C;
-  --board-card-shadow: 0 6px 14px rgba(10, 6, 4, 0.42);
-  --board-card-shadow-hover: 0 8px 18px rgba(10, 6, 4, 0.5);
-  --board-inner-glow: inset 0 1px 0 rgba(248, 242, 231, 0.08);
+/* Interactive 3D Pointer Tilt ONLY on Fine-Pointer Desktop Monitors in High-Fidelity Mode */
+@media (hover: hover) and (pointer: fine) {
+  html:not(.fz-low-power):not(.fz-display-tv):not(.fz-main-static) .board-stage {
+    perspective: 1400px;
+  }
+  html:not(.fz-low-power):not(.fz-display-tv):not(.fz-main-static) .main-cards-grid,
+  html:not(.fz-low-power):not(.fz-display-tv):not(.fz-main-static) .side-cards-list {
+    transform-style: preserve-3d;
+  }
+  html:not(.fz-low-power):not(.fz-display-tv):not(.fz-main-static) .rate-card,
+  html:not(.fz-low-power):not(.fz-display-tv):not(.fz-main-static) .side-card {
+    background:
+      radial-gradient(340px circle at var(--mx, 50%) var(--my, 15%), rgba(197, 168, 117, 0.12), transparent 62%),
+      var(--board-surface);
+    transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(var(--tz, 0px));
+    transition: transform 240ms var(--board-ease), border-color var(--board-duration) var(--board-ease), box-shadow 240ms var(--board-ease);
+  }
 }
 
-html.fz-low-power[data-theme="light"] {
+/* HD 720p / Compact Height TV Tuning (keeps all main cards crisp without overscroll) */
+@media (min-width: 1024px) and (max-height: 780px) {
+  .rate-card {
+    min-height: max(92px, calc(6.9 * var(--u)));
+    padding: max(8px, calc(0.72 * var(--u))) max(11px, calc(1.05 * var(--u)));
+  }
+  .side-card {
+    min-height: max(76px, calc(5.3 * var(--u)));
+    padding: max(8px, calc(0.62 * var(--u))) max(10px, calc(0.92 * var(--u)));
+  }
+}
+
+/* Forced Landscape Presentation on TV Displays (even at Android Box 1.25x-1.5x DPI scaling) */
+html.fz-display-tv.fz-landscape {
+  --u: min(1vw, 1.7778vh);
+  --u: min(1vw, 1.7778dvh);
+  --board-shell-pad-x: max(12px, calc(1.55 * var(--u)));
+  --board-gap: max(8px, calc(var(--board-gap-u, 0.9375) * var(--u)));
+  --board-ticker-size: max(12px, calc(var(--board-ticker-u, 0.8333) * var(--u)));
+  height: 100%;
+  overflow: hidden;
+}
+
+html.fz-display-tv.fz-landscape body {
+  height: 100%;
+  overflow: hidden;
+}
+
+html.fz-display-tv.fz-landscape .board-shell {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  padding-top: max(10px, calc(1.05 * var(--u)));
+  padding-inline: var(--board-shell-pad-x);
+}
+
+html.fz-display-tv.fz-landscape .board-masthead {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: max(10px, calc(1.3 * var(--u)));
+}
+
+html.fz-display-tv.fz-landscape .masthead-telemetry {
+  justify-content: center;
+  border-inline: 1px solid var(--board-line-subtle);
+  border-top: 0;
+  border-bottom: 0;
+  padding: 0 max(10px, calc(1.25 * var(--u)));
+  flex-wrap: nowrap;
+}
+
+html.fz-display-tv.fz-landscape .masthead-chronos {
+  justify-content: flex-end;
+}
+
+html.fz-display-tv.fz-landscape .board-stage {
+  grid-template-columns: minmax(0, 1fr) minmax(200px, var(--board-side-width));
+  gap: max(12px, calc(1.35 * var(--u)));
+}
+
+html.fz-display-tv.fz-landscape .stage-side {
+  border-inline-start: 1px solid var(--board-line-subtle);
+  padding-inline-start: max(12px, calc(1.3 * var(--u)));
+  border-top: 0;
+  padding-top: 0;
+}
+
+html.fz-display-tv.fz-landscape .stage-viewport {
+  overflow: hidden;
+}
+
+html.fz-display-tv.fz-landscape .main-cards-grid {
+  grid-template-columns: repeat(var(--board-cols), minmax(0, 1fr));
+}
+
+html.fz-display-tv.fz-landscape .rate-card {
+  min-height: max(86px, calc(7.1 * var(--u)));
+}
+
+html.fz-display-tv.fz-landscape .side-card {
+  min-height: max(72px, calc(5.4 * var(--u)));
+}
+
+/* Portrait Kiosk 90-Degree Rotated Landscape Mode */
+html.fz-rotate-landscape {
+  --u: min(1vh, 1.7778vw);
+  --u: min(1dvh, 1.7778dvw);
+  --board-shell-pad-x: max(10px, calc(1.35 * var(--u)));
+  --board-gap: max(8px, calc(var(--board-gap-u, 0.9375) * var(--u)));
+  --board-ticker-size: max(12px, calc(var(--board-ticker-u, 0.8333) * var(--u)));
+  height: 100%;
+  overflow: hidden !important;
+}
+
+html.fz-rotate-landscape body {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vh;
+  width: 100dvh;
+  height: 100vw;
+  height: 100dvw;
+  min-height: 0;
+  overflow: hidden !important;
+  transform-origin: top left;
+  transform: rotate(90deg) translateY(-100%);
+}
+
+html.fz-rotate-landscape .board-shell {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+html.fz-rotate-landscape .board-shell.has-frame::after {
+  position: absolute;
+}
+
+html.fz-rotate-landscape .board-masthead {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: max(10px, calc(1.25 * var(--u)));
+}
+
+html.fz-rotate-landscape .masthead-telemetry {
+  justify-content: center;
+  border-inline: 1px solid var(--board-line-subtle);
+  border-top: 0;
+  border-bottom: 0;
+  padding: 0 max(10px, calc(1.2 * var(--u)));
+  flex-wrap: nowrap;
+}
+
+html.fz-rotate-landscape .masthead-chronos {
+  justify-content: flex-end;
+}
+
+html.fz-rotate-landscape .board-stage {
+  grid-template-columns: minmax(0, 1fr) minmax(200px, var(--board-side-width));
+  gap: max(12px, calc(1.3 * var(--u)));
+}
+
+html.fz-rotate-landscape .stage-side {
+  border-inline-start: 1px solid var(--board-line-subtle);
+  padding-inline-start: max(12px, calc(1.25 * var(--u)));
+  border-top: 0;
+  padding-top: 0;
+}
+
+html.fz-rotate-landscape .stage-viewport {
+  overflow: hidden;
+}
+
+html.fz-rotate-landscape .main-cards-grid {
+  grid-template-columns: repeat(var(--board-cols), minmax(0, 1fr));
+}
+
+html.fz-rotate-landscape .board-controls {
+  max-width: calc(100dvh - 20px);
+}
+
+/* Main Panel MOTION OFF / Static Stationary Mode (leaves live updates active) */
+html.fz-main-static .stage-main .stage-track {
+  will-change: auto !important;
+}
+
+html.fz-main-static .stage-main .rate-card,
+html.fz-main-static .stage-main .rate-card::before,
+html.fz-main-static .stage-main .card-bg-emblem {
+  animation: none !important;
+  transition: none !important;
+  transform: none !important;
+}
+
+/* Dedicated Low-Resource Smart TV & Hardware Mode */
+html.fz-low-power,
+html.fz-display-tv {
+  --board-surface: #261913;
+  --board-surface-elevated: #322118;
+  --board-surface-inset: #19100C;
+  --board-card-shadow: none;
+  --board-card-shadow-hover: none;
+  --board-inner-glow: none;
+}
+
+html.fz-low-power[data-theme="light"],
+html.fz-display-tv[data-theme="light"] {
   --board-surface: #FFFDF8;
   --board-surface-elevated: #F5ECE0;
-  --board-card-shadow: 0 4px 12px rgba(33, 21, 15, 0.08);
-  --board-card-shadow-hover: 0 6px 16px rgba(33, 21, 15, 0.12);
+  --board-card-shadow: none;
+  --board-card-shadow-hover: none;
+  --board-inner-glow: none;
 }
 
-html.fz-low-power body::before {
-  display: none;
+html.fz-low-power body,
+html.fz-display-tv body {
+  background-image: none !important;
+}
+
+html.fz-low-power body::before,
+html.fz-display-tv body::before {
+  display: none !important;
+}
+
+html.fz-low-power .board-watermark img,
+html.fz-display-tv .board-watermark img {
+  filter: none !important;
 }
 
 html.fz-low-power .board-masthead,
 html.fz-low-power .rate-card,
 html.fz-low-power .side-card,
 html.fz-low-power .board-ticker,
-html.fz-low-power .board-controls {
+html.fz-low-power .board-controls,
+html.fz-display-tv .board-masthead,
+html.fz-display-tv .rate-card,
+html.fz-display-tv .side-card,
+html.fz-display-tv .board-ticker,
+html.fz-display-tv .board-controls {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+html.fz-low-power .board-stage,
+html.fz-display-tv .board-stage {
+  perspective: none !important;
+}
+
+html.fz-low-power .main-cards-grid,
+html.fz-low-power .side-cards-list,
+html.fz-display-tv .main-cards-grid,
+html.fz-display-tv .side-cards-list {
+  transform-style: flat !important;
 }
 
 html.fz-low-power .rate-card,
 html.fz-low-power .side-card,
-html.fz-low-power .card-bg-emblem {
+html.fz-low-power .card-bg-emblem,
+html.fz-display-tv .rate-card,
+html.fz-display-tv .side-card,
+html.fz-display-tv .card-bg-emblem {
   transform: none !important;
-  transition: border-color 140ms linear !important;
+  transition: none !important;
 }
 
-html.fz-low-power .rate-card::before,
-html.fz-low-power .side-card::before {
-  animation: none !important;
-  -webkit-mask: none !important;
-  mask: none !important;
-  background: none !important;
-  border: 1px solid var(--board-line-subtle);
+html.fz-low-power .rate-card,
+html.fz-display-tv .rate-card,
+html.fz-low-power .side-card,
+html.fz-display-tv .side-card {
+  border-color: var(--board-line-subtle);
 }
 
-html.fz-low-power .rate-card.is-featured::before {
+html.fz-low-power .rate-card.is-featured,
+html.fz-display-tv .rate-card.is-featured {
   border-color: var(--board-line);
 }
 
-html.fz-low-power .rate-trend.up,
-html.fz-low-power .rate-trend.down,
-html.fz-low-power .rate-trend.flat {
-  text-shadow: none;
+html.fz-low-power .rate-card::before,
+html.fz-low-power .side-card::before,
+html.fz-display-tv .rate-card::before,
+html.fz-display-tv .side-card::before {
+  display: none !important;
+  animation: none !important;
 }
 
-html.fz-low-power .rate-trend.up {
-  box-shadow: 0 0 8px rgba(164, 198, 144, 0.25);
+html.fz-low-power .card-bg-emblem,
+html.fz-display-tv .card-bg-emblem {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  opacity: 0.14;
 }
 
-html.fz-low-power .rate-trend.down {
-  box-shadow: 0 0 8px rgba(212, 119, 134, 0.28);
+html.fz-low-power[data-theme="light"] .card-bg-emblem,
+html.fz-display-tv[data-theme="light"] .card-bg-emblem {
+  opacity: 0.1;
 }
 
+html.fz-low-power .rate-trend,
+html.fz-display-tv .rate-trend,
+html.fz-low-power .market-indicator,
+html.fz-display-tv .market-indicator,
+html.fz-low-power .card-range-dot,
+html.fz-display-tv .card-range-dot,
+html.fz-low-power .live-dot,
+html.fz-display-tv .live-dot,
+html.fz-low-power .masthead-logo,
+html.fz-display-tv .masthead-logo {
+  text-shadow: none !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+
+/* Lightweight Border-Only Live Tick Highlight (Zero Box-Shadow Repaint) */
 html.fz-low-power .rate-card.is-tick-up,
 html.fz-low-power .side-card.is-tick-up,
+html.fz-display-tv .rate-card.is-tick-up,
+html.fz-display-tv .side-card.is-tick-up {
+  animation: none !important;
+  border-color: var(--board-sell) !important;
+}
+
 html.fz-low-power .rate-card.is-tick-down,
-html.fz-low-power .side-card.is-tick-down {
-  animation-duration: 0.8s;
+html.fz-low-power .side-card.is-tick-down,
+html.fz-display-tv .rate-card.is-tick-down,
+html.fz-display-tv .side-card.is-tick-down {
+  animation: none !important;
+  border-color: var(--board-buy) !important;
+}
+
+html.fz-low-power .side-card.is-fading-in,
+html.fz-low-power .side-card.is-rising,
+html.fz-display-tv .side-card.is-fading-in,
+html.fz-display-tv .side-card.is-rising {
+  animation: none !important;
+}
+
+html.fz-low-power .side-card.is-fading-out,
+html.fz-display-tv .side-card.is-fading-out {
+  transition: none !important;
+  opacity: 0.65;
+  transform: none !important;
+}
+
+/* Distance-Readable TV Typography Polish */
+html.fz-display-tv .rate-label {
+  letter-spacing: 0.01em;
+}
+
+html.fz-display-tv .quote-price,
+html.fz-display-tv .rate-single-price,
+html.fz-display-tv .side-quote-value,
+html.fz-display-tv .side-single-price {
+  text-rendering: optimizeSpeed;
 }
 
 /* Spatial D-Pad Focus Visual Indicators */
@@ -1566,10 +1863,15 @@ html.fz-spatial-nav .side-card.fz-spatial-focused,
 html.fz-low-power.fz-spatial-nav .rate-card:focus,
 html.fz-low-power.fz-spatial-nav .rate-card.fz-spatial-focused,
 html.fz-low-power.fz-spatial-nav .side-card:focus,
-html.fz-low-power.fz-spatial-nav .side-card.fz-spatial-focused {
+html.fz-low-power.fz-spatial-nav .side-card.fz-spatial-focused,
+html.fz-display-tv.fz-spatial-nav .rate-card:focus,
+html.fz-display-tv.fz-spatial-nav .rate-card.fz-spatial-focused,
+html.fz-display-tv.fz-spatial-nav .side-card:focus,
+html.fz-display-tv.fz-spatial-nav .side-card.fz-spatial-focused {
   outline: 3px solid var(--board-gold-strong);
   outline-offset: 2px;
-  box-shadow: 0 0 0 3px rgba(197, 168, 117, 0.35);
+  border-color: var(--board-gold-strong);
+  box-shadow: none !important;
 }
 
 html.fz-spatial-nav .source-credit:focus,
