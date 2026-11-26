@@ -72,25 +72,54 @@ let logoImage = new Image();
 logoImage.src = '/farzin-logo.png';
 logoImage.onload = renderStory;
 
+let storyBaseCanvas = null;
+let storyBaseKey = '';
+let lastAppliedPayloadKey = '';
+let lastDashboardEtag = '';
+
+const storyPersianDateFmt = new Intl.DateTimeFormat('en-US-u-ca-persian', {
+  timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit'
+});
+const storyPersianWeekdayFmt = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+  timeZone: 'Asia/Tehran', weekday: 'long'
+});
+const storyPadYearFmt = new Intl.NumberFormat('fa-IR', { useGrouping: false, minimumIntegerDigits: 4 });
+const storyPadTwoFmt = new Intl.NumberFormat('fa-IR', { useGrouping: false, minimumIntegerDigits: 2 });
+const storyTehranTimeFmt = new Intl.DateTimeFormat('fa-IR', {
+  timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+});
+
+function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  const opts = controller ? { ...options, signal: controller.signal } : options;
+  return fetch(url, opts).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 function esc(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 function faNumber(value) {
   if (value === null || value === undefined || value === '') return '—';
   const n = Number(value);
   if (!Number.isFinite(n)) return String(value);
-  return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).formatToParts(n).map(part => part.type === 'group' ? ',' : part.type === 'decimal' ? '.' : part.value).join('');
+  const fmt = faNumber._fmt || (faNumber._fmt = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }));
+  return fmt.formatToParts(n).map(part => part.type === 'group' ? ',' : part.type === 'decimal' ? '.' : part.value).join('');
 }
+let cachedStoryDateKey = '';
+let cachedStoryDate = null;
 function tehranDateParts() {
   const date = new Date();
-  const dateParts = new Intl.DateTimeFormat('en-US-u-ca-persian', {
-    timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit'
-  }).formatToParts(date);
+  const second = Math.floor(date.getTime() / 60000);
+  if (second === cachedStoryDateKey && cachedStoryDate) return cachedStoryDate;
+  const dateParts = storyPersianDateFmt.formatToParts(date);
   const part = type => dateParts.find(item => item.type === type)?.value || '00';
-  const weekday = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
-    timeZone: 'Asia/Tehran', weekday: 'long'
-  }).format(date);
-  const padded = type => new Intl.NumberFormat('fa-IR', { useGrouping: false, minimumIntegerDigits: type === 'year' ? 4 : 2 }).format(Number(part(type)));
-  return { date: `${padded('year')}/${padded('month')}/${padded('day')}`, weekday };
+  const weekday = storyPersianWeekdayFmt.format(date);
+  const padded = type => (type === 'year' ? storyPadYearFmt : storyPadTwoFmt).format(Number(part(type)));
+  cachedStoryDate = { date: `${padded('year')}/${padded('month')}/${padded('day')}`, weekday };
+  cachedStoryDateKey = second;
+  return cachedStoryDate;
 }
 function normalizeSettings(raw = {}) {
   const merged = { ...clone(DEFAULT_SETTINGS), ...(raw && typeof raw === 'object' ? raw : {}) };
@@ -137,7 +166,7 @@ function formatTehranTime(iso) {
   if (!iso) return 'زمان منبع نامشخص';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return 'زمان منبع نامشخص';
-  return new Intl.DateTimeFormat('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date);
+  return storyTehranTimeFmt.format(date);
 }
 function showToast(message) {
   const el = $('toast');
@@ -446,8 +475,15 @@ function mixWithBlack(hex, factor) {
 function activeSections() {
   return settings.sections.filter(s => s.visible && s.rows.some(r => r.visible));
 }
+let cachedStoryClockSecond = -1;
+let cachedStoryClock = '';
 function tehranClock() {
-  return new Intl.DateTimeFormat('fa-IR', { timeZone:'Asia/Tehran', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(new Date());
+  const sec = Math.floor(Date.now() / 1000);
+  if (sec !== cachedStoryClockSecond) {
+    cachedStoryClockSecond = sec;
+    cachedStoryClock = storyTehranTimeFmt.format(new Date(sec * 1000));
+  }
+  return cachedStoryClock;
 }
 function rateDataFor(rowOrSource, manualValue = '') {
   const row = typeof rowOrSource === 'object' && rowOrSource ? rowOrSource : { source:rowOrSource, manualValue };
@@ -720,46 +756,103 @@ function drawCardSurface(ctx,x,y,w,h,featured=false){
   const primary=settings.goldColor||'#c5a875',secondary=settings.mutedColor||'#9f9082';
   drawGlassPanel(ctx,x,y,w,h,22,primary,secondary,featured);
 }
+function renderStoryBaseLayer(width, height, scale, gold, main, muted, bg) {
+  const hasLogo = Boolean(logoImage.complete && logoImage.naturalWidth);
+  const logoKey = hasLogo ? `${logoImage.src}:${logoImage.naturalWidth}` : 'no-logo';
+  const key = `${scale}:${width}:${height}:${bg}:${gold}:${main}:${muted}:${settings.watermarkOpacity || 0}:${Boolean(settings.showFrame)}:${Boolean(settings.showLogo)}:${settings.brand || ''}:${settings.subtitle || ''}:${logoKey}`;
+  if (storyBaseCanvas && storyBaseKey === key) return storyBaseCanvas;
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') return null;
+
+  const base = storyBaseCanvas || document.createElement('canvas');
+  base.width = width * scale;
+  base.height = height * scale;
+  const bctx = base.getContext('2d');
+  if (!bctx) return null;
+  bctx.setTransform(scale, 0, 0, scale, 0, 0);
+
+  // Deep Chocolate base + layered Mocha, Muted Gold & Champagne radial luxury light
+  bctx.fillStyle = bg; bctx.fillRect(0, 0, width, height);
+  const topGlow = bctx.createRadialGradient(540, 210, 20, 540, 290, 780);
+  topGlow.addColorStop(0, rgbaHex(gold, 0.22)); topGlow.addColorStop(0.45, rgbaHex('#6e503e', 0.14)); topGlow.addColorStop(1, 'rgba(27,18,14,0)');
+  bctx.fillStyle = topGlow; bctx.fillRect(0, 0, width, height);
+  const sideGlow = bctx.createRadialGradient(140, 1480, 10, 140, 1480, 760);
+  sideGlow.addColorStop(0, rgbaHex(muted, 0.12)); sideGlow.addColorStop(0.5, rgbaHex(gold, 0.06)); sideGlow.addColorStop(1, 'rgba(27,18,14,0)');
+  bctx.fillStyle = sideGlow; bctx.fillRect(0, 0, width, height);
+  drawStoryBackdropPattern(bctx, width, height, gold, muted);
+
+  if (hasLogo) {
+    const size = 810;
+    bctx.save();
+    bctx.globalAlpha = Math.max(0, Math.min(.3, Number(settings.watermarkOpacity || 0) / 100));
+    bctx.globalCompositeOperation = 'screen';
+    bctx.drawImage(logoImage, (width - size) / 2, 615, size, size);
+    bctx.restore();
+  }
+
+  if (settings.showFrame) {
+    bctx.save();
+    const frameGrad = bctx.createLinearGradient(30, 30, 1050, 1890);
+    frameGrad.addColorStop(0, rgbaHex(muted, 0.75));
+    frameGrad.addColorStop(0.32, rgbaHex(gold, 0.88));
+    frameGrad.addColorStop(0.68, rgbaHex(muted, 0.4));
+    frameGrad.addColorStop(1, rgbaHex(gold, 0.78));
+    bctx.strokeStyle = frameGrad; bctx.lineWidth = 2; roundRect(bctx, 30, 30, 1020, 1860, 24); bctx.stroke();
+    bctx.strokeStyle = rgbaHex(muted, 0.22); bctx.lineWidth = 1; roundRect(bctx, 43, 43, 994, 1834, 18); bctx.stroke();
+    bctx.fillStyle = '#e8d8be';
+    [[43, 43], [1037, 43], [43, 1877], [1037, 1877]].forEach(([cx, cy]) => {
+      bctx.beginPath(); bctx.moveTo(cx, cy - 5); bctx.lineTo(cx + 5, cy); bctx.lineTo(cx, cy + 5); bctx.lineTo(cx - 5, cy); bctx.closePath(); bctx.fill();
+    });
+    bctx.restore();
+  }
+
+  if (settings.showLogo && hasLogo) {
+    const size = 68, gap = 20, brand = String(settings.brand || ''); bctx.font = '800 44px Vazirmatn, Tahoma, sans-serif';
+    const brandW = Math.min(790, bctx.measureText(brand).width), groupW = brandW + gap + size, left = (width - groupW) / 2;
+    bctx.save(); bctx.shadowColor = rgbaHex(gold, 0.6); bctx.shadowBlur = 22; bctx.drawImage(logoImage, left + brandW + gap, 54, size, size); bctx.restore();
+    drawFitText(bctx, brand, left + brandW / 2, 101, 44, main, 'center', 800, brandW, 24);
+  } else drawText(bctx, settings.brand || '', 540, 128, 44, main, 'center', 800, 900, 24);
+  drawText(bctx, settings.subtitle || '', 540, settings.showLogo ? 154 : 169, 21, muted, 'center', 500, 920, 15);
+
+  storyBaseCanvas = base;
+  storyBaseKey = key;
+  return base;
+}
+
 function drawStory(canvas, scale) {
   const width=1080,height=1920;canvas.width=width*scale;canvas.height=height*scale;
   const ctx=canvas.getContext('2d');ctx.setTransform(scale,0,0,scale,0,0);
   const gold=settings.goldColor||'#c5a875',main=settings.textColor||'#f8f2e7',muted=settings.mutedColor||'#9f9082',bg=settings.bgColor||'#1b120e';
-  // Deep Chocolate base + layered Mocha, Muted Gold & Champagne radial luxury light
-  ctx.fillStyle=bg;ctx.fillRect(0,0,width,height);
-  const topGlow=ctx.createRadialGradient(540,210,20,540,290,780);
-  topGlow.addColorStop(0,rgbaHex(gold,0.22));topGlow.addColorStop(0.45,rgbaHex('#6e503e',0.14));topGlow.addColorStop(1,'rgba(27,18,14,0)');
-  ctx.fillStyle=topGlow;ctx.fillRect(0,0,width,height);
-  const sideGlow=ctx.createRadialGradient(140,1480,10,140,1480,760);
-  sideGlow.addColorStop(0,rgbaHex(muted,0.12));sideGlow.addColorStop(0.5,rgbaHex(gold,0.06));sideGlow.addColorStop(1,'rgba(27,18,14,0)');
-  ctx.fillStyle=sideGlow;ctx.fillRect(0,0,width,height);
-  drawStoryBackdropPattern(ctx,width,height,gold,muted);
-
-  if(logoImage.complete&&logoImage.naturalWidth){const size=810;ctx.save();ctx.globalAlpha=Math.max(0,Math.min(.3,Number(settings.watermarkOpacity||0)/100));ctx.globalCompositeOperation='screen';ctx.drawImage(logoImage,(width-size)/2,615,size,size);ctx.restore();}
-
-  if(settings.showFrame){
-    ctx.save();
-    const frameGrad=ctx.createLinearGradient(30,30,1050,1890);
-    frameGrad.addColorStop(0,rgbaHex(muted,0.75));
-    frameGrad.addColorStop(0.32,rgbaHex(gold,0.88));
-    frameGrad.addColorStop(0.68,rgbaHex(muted,0.4));
-    frameGrad.addColorStop(1,rgbaHex(gold,0.78));
-    ctx.strokeStyle=frameGrad;ctx.lineWidth=2;roundRect(ctx,30,30,1020,1860,24);ctx.stroke();
-    ctx.strokeStyle=rgbaHex(muted,0.22);ctx.lineWidth=1;roundRect(ctx,43,43,994,1834,18);ctx.stroke();
-    // Subtle corner diamond accents
-    ctx.fillStyle='#e8d8be';
-    [[43,43],[1037,43],[43,1877],[1037,1877]].forEach(([cx,cy])=>{
-      ctx.beginPath();ctx.moveTo(cx,cy-5);ctx.lineTo(cx+5,cy);ctx.lineTo(cx,cy+5);ctx.lineTo(cx-5,cy);ctx.closePath();ctx.fill();
-    });
-    ctx.restore();
+  const cachedBase = renderStoryBaseLayer(width, height, scale, gold, main, muted, bg);
+  if (cachedBase) {
+    ctx.drawImage(cachedBase, 0, 0, width, height);
+  } else {
+    ctx.fillStyle=bg;ctx.fillRect(0,0,width,height);
+    const topGlow=ctx.createRadialGradient(540,210,20,540,290,780);
+    topGlow.addColorStop(0,rgbaHex(gold,0.22));topGlow.addColorStop(0.45,rgbaHex('#6e503e',0.14));topGlow.addColorStop(1,'rgba(27,18,14,0)');
+    ctx.fillStyle=topGlow;ctx.fillRect(0,0,width,height);
+    const sideGlow=ctx.createRadialGradient(140,1480,10,140,1480,760);
+    sideGlow.addColorStop(0,rgbaHex(muted,0.12));sideGlow.addColorStop(0.5,rgbaHex(gold,0.06));sideGlow.addColorStop(1,'rgba(27,18,14,0)');
+    ctx.fillStyle=sideGlow;ctx.fillRect(0,0,width,height);
+    drawStoryBackdropPattern(ctx,width,height,gold,muted);
+    if(logoImage.complete&&logoImage.naturalWidth){const size=810;ctx.save();ctx.globalAlpha=Math.max(0,Math.min(.3,Number(settings.watermarkOpacity||0)/100));ctx.globalCompositeOperation='screen';ctx.drawImage(logoImage,(width-size)/2,615,size,size);ctx.restore();}
+    if(settings.showFrame){
+      ctx.save();
+      const frameGrad=ctx.createLinearGradient(30,30,1050,1890);
+      frameGrad.addColorStop(0,rgbaHex(muted,0.75));frameGrad.addColorStop(0.32,rgbaHex(gold,0.88));frameGrad.addColorStop(0.68,rgbaHex(muted,0.4));frameGrad.addColorStop(1,rgbaHex(gold,0.78));
+      ctx.strokeStyle=frameGrad;ctx.lineWidth=2;roundRect(ctx,30,30,1020,1860,24);ctx.stroke();
+      ctx.strokeStyle=rgbaHex(muted,0.22);ctx.lineWidth=1;roundRect(ctx,43,43,994,1834,18);ctx.stroke();
+      ctx.fillStyle='#e8d8be';
+      [[43,43],[1037,43],[43,1877],[1037,1877]].forEach(([cx,cy])=>{ctx.beginPath();ctx.moveTo(cx,cy-5);ctx.lineTo(cx+5,cy);ctx.lineTo(cx,cy+5);ctx.lineTo(cx-5,cy);ctx.closePath();ctx.fill();});
+      ctx.restore();
+    }
+    if(settings.showLogo&&logoImage.complete&&logoImage.naturalWidth){
+      const size=68,gap=20,brand=String(settings.brand||'');ctx.font='800 44px Vazirmatn, Tahoma, sans-serif';
+      const brandW=Math.min(790,ctx.measureText(brand).width),groupW=brandW+gap+size,left=(width-groupW)/2;
+      ctx.save();ctx.shadowColor=rgbaHex(gold,0.6);ctx.shadowBlur=22;ctx.drawImage(logoImage,left+brandW+gap,54,size,size);ctx.restore();
+      drawFitText(ctx,brand,left+brandW/2,101,44,main,'center',800,brandW,24);
+    } else drawText(ctx,settings.brand||'',540,128,44,main,'center',800,900,24);
+    drawText(ctx,settings.subtitle||'',540,settings.showLogo?154:169,21,muted,'center',500,920,15);
   }
-
-  if(settings.showLogo&&logoImage.complete&&logoImage.naturalWidth){
-    const size=68,gap=20,brand=String(settings.brand||'');ctx.font='800 44px Vazirmatn, Tahoma, sans-serif';
-    const brandW=Math.min(790,ctx.measureText(brand).width),groupW=brandW+gap+size,left=(width-groupW)/2;
-    ctx.save();ctx.shadowColor=rgbaHex(gold,0.6);ctx.shadowBlur=22;ctx.drawImage(logoImage,left+brandW+gap,54,size,size);ctx.restore();
-    drawFitText(ctx,brand,left+brandW/2,101,44,main,'center',800,brandW,24);
-  } else drawText(ctx,settings.brand||'',540,128,44,main,'center',800,900,24);
-  drawText(ctx,settings.subtitle||'',540,settings.showLogo?154:169,21,muted,'center',500,920,15);
 
   const cfg=settings.storyConfig||{};
   const headerY=settings.showLogo?246:196,headerCellW=455,headerCellH=58,headerGapX=30,headerGapY=10,headerX=70;
@@ -848,6 +941,11 @@ function renderStory() {
 
 function applyPricePayload(payload) {
   if (!payload || typeof payload !== 'object') return;
+  const payloadKey = payload.snapshotSeq !== undefined
+    ? `${payload.snapshotSeq}:${payload.updated_at || ''}:${payload.status || ''}`
+    : '';
+  if (payloadKey && payloadKey === lastAppliedPayloadKey) return;
+  if (payloadKey) lastAppliedPayloadKey = payloadKey;
   if (payload.prices && Object.keys(payload.prices).length) livePrices = payload.prices;
   if (payload.sideRates && Object.keys(payload.sideRates).length) sideRates = payload.sideRates;
   if (payload.assets && Object.keys(payload.assets).length) assetPrices = payload.assets;
@@ -870,9 +968,11 @@ function applyPricePayload(payload) {
 }
 async function loadInitialPrices() {
   try {
-    const response = await fetch('/api/dashboard-data', { cache: 'no-store', signal: AbortSignal.timeout(3500) });
+    const response = await fetchWithTimeout('/api/dashboard-data', { cache: 'no-store' }, 3500);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'دریافت نرخ انجام نشد.');
+    const etag = response.headers?.get?.('ETag');
+    if (etag) lastDashboardEtag = etag;
     applyPricePayload(data);
   } catch (error) {
     setConnection('error', 'سرور محلی در دسترس نیست', error.message || 'پاسخی از سرور دریافت نشد.');
@@ -890,10 +990,14 @@ function startLive() {
 let dashboardPollTimer = null;
 let dashboardPollBusy = false;
 async function pollDashboard() {
-  if (!settings.liveEnabled || dashboardPollBusy) return;
+  if (!settings.liveEnabled || dashboardPollBusy || document.hidden) return;
   dashboardPollBusy = true;
   try {
-    const response = await fetch('/api/dashboard-data', { cache: 'no-store', signal: AbortSignal.timeout(3500) });
+    const headers = lastDashboardEtag ? { 'If-None-Match': lastDashboardEtag } : {};
+    const response = await fetchWithTimeout('/api/dashboard-data', { cache: 'no-store', headers }, 3500);
+    if (response.status === 304) return;
+    const etag = response.headers?.get?.('ETag');
+    if (etag) lastDashboardEtag = etag;
     const data = await response.json();
     if (response.ok) applyPricePayload(data);
     else throw new Error(data.error || `HTTP ${response.status}`);
@@ -903,23 +1007,28 @@ async function pollDashboard() {
   } finally {
     dashboardPollBusy = false;
     clearTimeout(dashboardPollTimer);
-    const seconds = Math.max(1, Number(settings.boardConfig?.refreshSeconds || 1));
-    const delay = latestPayload?.hasPrices ? seconds * 1000 : 1000;
-    dashboardPollTimer = setTimeout(pollDashboard, delay);
+    if (!document.hidden) {
+      const seconds = Math.max(1, Number(settings.boardConfig?.refreshSeconds || 1));
+      const delay = latestPayload?.hasPrices ? seconds * 1000 : 1000;
+      dashboardPollTimer = setTimeout(pollDashboard, delay);
+    }
   }
 }
 async function refreshNow() {
   $('refreshNow').disabled = true; $('refreshNow').textContent = 'در حال دریافت...';
   try {
-    await fetch('/api/refresh', { method:'POST', cache:'no-store', signal:AbortSignal.timeout(2500) });
+    await fetchWithTimeout('/api/refresh', { method:'POST', cache:'no-store' }, 2500);
     let data = null;
     for (let i=0;i<8;i++) {
       await new Promise(resolve=>setTimeout(resolve,700));
-      const response = await fetch('/api/dashboard-data', { cache:'no-store', signal:AbortSignal.timeout(3500) });
+      const response = await fetchWithTimeout('/api/dashboard-data', { cache:'no-store' }, 3500);
+      const etag = response.headers?.get?.('ETag');
+      if (etag) lastDashboardEtag = etag;
       data = await response.json();
       if (data.hasPrices || data.status === 'offline') break;
     }
     if (!data) throw new Error('از TGJU پاسخی دریافت نشد.');
+    lastAppliedPayloadKey = '';
     applyPricePayload(data);
     showToast(data.hasPrices ? 'آخرین نرخ از TGJU دریافت شد.' : (data.last_error || 'TGJU هنوز نرخ معتبری ارسال نکرده است.'));
   } catch (error) { showToast(error.message); }
@@ -1016,7 +1125,7 @@ $('marketSearch')?.addEventListener('input', event => {
 async function init() {
   bindBasics();
   try {
-    const response = await fetch('/api/config',{cache:'no-store', signal:AbortSignal.timeout(3500)});
+    const response = await fetchWithTimeout('/api/config', { cache:'no-store' }, 3500);
     const data = await response.json();
     if (data.settings) settings=normalizeSettings(data.settings);
   } catch(error) { console.warn('Could not load local settings',error); }
@@ -1028,6 +1137,17 @@ async function init() {
   await loadInitialPrices();
   startLive();
   dashboardPollTimer=setTimeout(pollDashboard, latestPayload?.hasPrices ? Math.max(1,Number(settings.boardConfig?.refreshSeconds||1))*1000 : 1000);
-  setInterval(renderStory, 1000);
+  setInterval(() => {
+    if (!document.hidden) renderStory();
+  }, 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      renderStory();
+      clearTimeout(dashboardPollTimer);
+      pollDashboard();
+    } else {
+      clearTimeout(dashboardPollTimer);
+    }
+  });
 }
 init();

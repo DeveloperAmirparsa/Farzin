@@ -1,8 +1,9 @@
 'use strict';
 
-const CACHE_NAME = 'farzin-static-v11';
+const CACHE_NAME = 'farzin-static-v13';
 const STATIC_ASSETS = [
   '/app-icon.svg',
+  '/farzin-logo.png',
   '/asset-catalog.js',
   '/asset-icons.js',
   '/boot.css',
@@ -18,7 +19,9 @@ const STATIC_ASSETS = [
   '/login.js',
   '/pwa.js',
   '/quote-pricing.js',
+  '/smart-tv-utils.js',
   '/style.css',
+  '/tgju-widget.js',
   '/ui-components.js'
 ];
 const APP_SHELL = ['/board', '/index.html'];
@@ -45,26 +48,31 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const request = event.request;
-  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
-  const url = new URL(request.url);
-  if (url.pathname.startsWith('/api/')) return;
+  if (request.method !== 'GET') return;
+  let url;
+  try { url = new URL(request.url); } catch { return; }
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
 
   const isStaticAsset = /\.(css|js|png|svg|ico|webmanifest)$/i.test(url.pathname);
   if (!isStaticAsset) return;
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
-    try {
-      const response = await fetch(request);
+    const cached = await cache.match(request, { ignoreSearch: false });
+    const revalidate = fetch(request).then(response => {
       const type = response.headers.get('Content-Type') || '';
       if (response.ok && /javascript|text\/css|image\/|application\/manifest\+json/.test(type)) {
-        await cache.put(request, response.clone());
+        cache.put(request, response.clone()).catch(() => {});
       }
       return response;
-    } catch (error) {
-      const cached = await cache.match(request);
-      if (cached) return cached;
-      throw error;
+    }).catch(() => null);
+
+    if (cached) {
+      event.waitUntil(revalidate);
+      return cached;
     }
+    const fresh = await revalidate;
+    if (fresh) return fresh;
+    return new Response('', { status: 504, statusText: 'Gateway Timeout' });
   })());
 });

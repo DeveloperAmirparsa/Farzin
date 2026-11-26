@@ -6,7 +6,15 @@
   const CHAMPAGNE = '#e8d8be';
   const IVORY = '#f8f2e7';
   const CHOCOLATE = '#1b120e';
-  let svgSeq = 0;
+  const meshCache = new Map();
+  const svgCache = new Map();
+  const svgSide3DCache = new Map();
+  const sideSpriteCache = new Map();
+  const MAX_SIDE_SPRITES = 48;
+
+  function safeSvgId(prefix, className) {
+    return `${prefix}_${String(className || '').replace(/[^a-zA-Z0-9_-]/g, '_') || 'default'}`;
+  }
 
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
@@ -516,12 +524,14 @@
   const CRYPTO_TYPES = ['crypto', 'bitcoin', 'ethereum', 'tether', 'ripple', 'solana', 'bnb', 'cardano', 'dogecoin', 'tron'];
 
   function buildMeshForType(t) {
-    if (t === 'gold') return buildBullionBarMesh(PAL.gold, '999.9', false);
-    if (t === 'ounce') return buildBullionBarMesh(PAL.gold, '1 OZ', true);
-    if (t === 'silver') return buildBullionBarMesh(PAL.silver, 'Ag 999', false);
-    if (t === 'coin') return buildCoinMesh(28, 0.94, 0.19, 0.06, PAL.gold, PAL.gold, { kind: 'coin-crest', color: '#FFF9E6' }, true);
-    if (t === 'metal') {
-      const faces = [];
+    if (meshCache.has(t)) return meshCache.get(t);
+    let faces;
+    if (t === 'gold') faces = buildBullionBarMesh(PAL.gold, '999.9', false);
+    else if (t === 'ounce') faces = buildBullionBarMesh(PAL.gold, '1 OZ', true);
+    else if (t === 'silver') faces = buildBullionBarMesh(PAL.silver, 'Ag 999', false);
+    else if (t === 'coin') faces = buildCoinMesh(28, 0.94, 0.19, 0.06, PAL.gold, PAL.gold, { kind: 'coin-crest', color: '#FFF9E6' }, true);
+    else if (t === 'metal') {
+      faces = [];
       const segs = 6, bot = [], top = [];
       for (let i = 0; i < segs; i++) {
         const a = (i * Math.PI * 2) / segs;
@@ -529,21 +539,22 @@
         top.push([Math.cos(a) * 0.66, 0.30, Math.sin(a) * 0.66]);
       }
       addFrustumFaces(faces, [0, 0, 0], bot, top, PAL.metal);
-      return faces;
     }
-    if (t in CURRENCY_GLYPHS) return buildBanknoteStackMesh(CURRENCY_GLYPHS[t]);
-    if (t === 'ethereum') return buildEthereumMesh();
-    if (t === 'solana') return buildSolanaMesh();
-    if (CRYPTO_TYPES.includes(t)) {
+    else if (t in CURRENCY_GLYPHS) faces = buildBanknoteStackMesh(CURRENCY_GLYPHS[t]);
+    else if (t === 'ethereum') faces = buildEthereumMesh();
+    else if (t === 'solana') faces = buildSolanaMesh();
+    else if (CRYPTO_TYPES.includes(t)) {
       const glyph = ({ bitcoin: '₿', tether: '₮', ripple: '✕', bnb: '◆', cardano: '₳', dogecoin: 'Ð', tron: 'T', crypto: '₿' })[t] || '₿';
       const segs = t === 'tether' ? 6 : t === 'bnb' ? 4 : 24;
-      return buildCoinMesh(segs, 0.92, 0.20, 0.06, PAL.gold, PAL.darkCore, { kind: 'text-badge', glyph, color: '#F5DE9E' }, segs >= 16);
+      faces = buildCoinMesh(segs, 0.92, 0.20, 0.06, PAL.gold, PAL.darkCore, { kind: 'text-badge', glyph, color: '#F5DE9E' }, segs >= 16);
     }
-    if (t === 'stock') return buildStockMesh();
-    if (t === 'fund') return buildFundMesh();
-    if (t === 'bond') return buildBondMesh();
-    if (t === 'commodity') return buildCommodityMesh();
-    return buildDiamondMesh();
+    else if (t === 'stock') faces = buildStockMesh();
+    else if (t === 'fund') faces = buildFundMesh();
+    else if (t === 'bond') faces = buildBondMesh();
+    else if (t === 'commodity') faces = buildCommodityMesh();
+    else faces = buildDiamondMesh();
+    meshCache.set(t, faces);
+    return faces;
   }
 
   // Preserved 3D Oil Droplet ("ولی نفت خوبه نگهش دار")
@@ -794,49 +805,55 @@
     drawProjectedMeshCanvas(ctx, t, x, y, s, false);
   }
 
-  let scratchCanvas = null;
-
   function drawSide3D(ctx, type, x, y, size, color, options = {}) {
     const t = String(type || 'generic').toLowerCase();
     const s = Math.max(24, Number(size) || 64);
     const opacity = Number.isFinite(Number(options.opacity)) ? Number(options.opacity) : 0.24;
     if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
-      if (!scratchCanvas) scratchCanvas = document.createElement('canvas');
       const box = Math.ceil(s * 1.48);
       const tform = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null;
       const pxScale = Math.max(1, Math.min(3, Math.ceil(tform ? Math.hypot(tform.a, tform.b) : 1)));
-      const targetW = box * pxScale;
-      const targetH = box * pxScale;
-      if (scratchCanvas.width !== targetW || scratchCanvas.height !== targetH) {
-        scratchCanvas.width = targetW;
-        scratchCanvas.height = targetH;
-      }
-      const sc = scratchCanvas.getContext('2d');
-      if (sc) {
-        sc.setTransform(pxScale, 0, 0, pxScale, 0, 0);
-        sc.clearRect(0, 0, box, box);
-        if (t === 'oil') {
+      const cacheKey = `${t}:${box}:${pxScale}:${t === 'oil' ? (color || PRIMARY) : 'mesh'}`;
+      let sprite = sideSpriteCache.get(cacheKey);
+      if (!sprite) {
+        sprite = document.createElement('canvas');
+        sprite.width = box * pxScale;
+        sprite.height = box * pxScale;
+        const sc = sprite.getContext('2d');
+        if (sc) {
+          sc.setTransform(pxScale, 0, 0, pxScale, 0, 0);
+          sc.clearRect(0, 0, box, box);
+          if (t === 'oil') {
+            sc.save();
+            sc.translate(box * 0.5, box * 0.5);
+            drawOilDroplet(sc, s * 0.5, color || PRIMARY, true);
+            sc.restore();
+          } else {
+            drawProjectedMeshCanvas(sc, t, box * 0.5, box * 0.5, s, true);
+          }
           sc.save();
-          sc.translate(box * 0.5, box * 0.5);
-          drawOilDroplet(sc, s * 0.5, color || PRIMARY, true);
+          sc.globalCompositeOperation = 'destination-in';
+          const fadeGrad = sc.createLinearGradient(0, 0, box, 0);
+          fadeGrad.addColorStop(0, 'rgba(0,0,0,0.96)');
+          fadeGrad.addColorStop(0.45, 'rgba(0,0,0,0.82)');
+          fadeGrad.addColorStop(0.78, 'rgba(0,0,0,0.25)');
+          fadeGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          sc.fillStyle = fadeGrad;
+          sc.fillRect(0, 0, box, box);
           sc.restore();
+          if (sideSpriteCache.size >= MAX_SIDE_SPRITES) {
+            const oldestKey = sideSpriteCache.keys().next().value;
+            if (oldestKey !== undefined) sideSpriteCache.delete(oldestKey);
+          }
+          sideSpriteCache.set(cacheKey, sprite);
         } else {
-          drawProjectedMeshCanvas(sc, t, box * 0.5, box * 0.5, s, true);
+          sprite = null;
         }
-        sc.save();
-        sc.globalCompositeOperation = 'destination-in';
-        const fadeGrad = sc.createLinearGradient(0, 0, box, 0);
-        fadeGrad.addColorStop(0, 'rgba(0,0,0,0.96)');
-        fadeGrad.addColorStop(0.45, 'rgba(0,0,0,0.82)');
-        fadeGrad.addColorStop(0.78, 'rgba(0,0,0,0.25)');
-        fadeGrad.addColorStop(1, 'rgba(0,0,0,0)');
-        sc.fillStyle = fadeGrad;
-        sc.fillRect(0, 0, box, box);
-        sc.restore();
-
+      }
+      if (sprite) {
         ctx.save();
         ctx.globalAlpha = opacity;
-        ctx.drawImage(scratchCanvas, x - box * 0.5, y - box * 0.5, box, box);
+        ctx.drawImage(sprite, x - box * 0.5, y - box * 0.5, box, box);
         ctx.restore();
         return;
       }
@@ -854,30 +871,44 @@
 
   function svg(type, className = 'fz-asset-svg') {
     const t = String(type || 'generic').toLowerCase();
+    const key = `${t}::${className}`;
+    const cachedSvg = svgCache.get(key);
+    if (cachedSvg) return cachedSvg;
+    let out;
     if (t === 'oil') {
-      const uid = ++svgSeq;
-      return `<svg class="${className}" viewBox="0 0 28 28" fill="none" aria-hidden="true"><defs><linearGradient id="fzOil${uid}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F8F2E7"/><stop offset="50%" stop-color="#C5A875"/><stop offset="100%" stop-color="#4F3728"/></linearGradient></defs>
+      const gradId = safeSvgId('fzOil', className);
+      out = `<svg class="${className}" viewBox="0 0 28 28" fill="none" aria-hidden="true"><defs><linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F8F2E7"/><stop offset="50%" stop-color="#C5A875"/><stop offset="100%" stop-color="#4F3728"/></linearGradient></defs>
         <ellipse cx="14" cy="24.5" rx="7.4" ry="2" fill="rgba(14,9,6,0.52)"/>
-        <path d="M14 3.2C14 3.2 21.8 11.2 20.5 17C19.6 21.2 17.1 23.4 14 23.4C10.9 23.4 8.4 21.2 7.5 17C6.2 11.2 14 3.2 14 3.2Z" fill="url(#fzOil${uid})" stroke="rgba(248,242,231,0.68)" stroke-width="0.9"/>
+        <path d="M14 3.2C14 3.2 21.8 11.2 20.5 17C19.6 21.2 17.1 23.4 14 23.4C10.9 23.4 8.4 21.2 7.5 17C6.2 11.2 14 3.2 14 3.2Z" fill="url(#${gradId})" stroke="rgba(248,242,231,0.68)" stroke-width="0.9"/>
         <ellipse cx="11.4" cy="15.2" rx="1.35" ry="3.1" transform="rotate(-18 11.4 15.2)" fill="rgba(248,242,231,0.72)"/>
       </svg>`;
+    } else {
+      out = renderProjectedMeshSvg(t, 28, 28, 11.2, 14, 14.4, false, className);
     }
-    return renderProjectedMeshSvg(t, 28, 28, 11.2, 14, 14.4, false, className);
+    svgCache.set(key, out);
+    return out;
   }
 
   function svgSide3D(type, className = 'fz-asset-3d-svg') {
     const t = String(type || 'generic').toLowerCase();
+    const key = `${t}::${className}`;
+    const cachedSvg = svgSide3DCache.get(key);
+    if (cachedSvg) return cachedSvg;
+    let out;
     if (t === 'oil') {
-      const uid = ++svgSeq;
-      return `<svg class="${className}" viewBox="0 0 120 100" fill="none" aria-hidden="true"><defs><linearGradient id="fzOil3d${uid}" x1="15%" y1="8%" x2="85%" y2="92%"><stop offset="0%" stop-color="#F8F2E7"/><stop offset="45%" stop-color="#C5A875"/><stop offset="100%" stop-color="#4F3728"/></linearGradient></defs>
+      const gradId = safeSvgId('fzOil3d', className);
+      out = `<svg class="${className}" viewBox="0 0 120 100" fill="none" aria-hidden="true"><defs><linearGradient id="${gradId}" x1="15%" y1="8%" x2="85%" y2="92%"><stop offset="0%" stop-color="#F8F2E7"/><stop offset="45%" stop-color="#C5A875"/><stop offset="100%" stop-color="#4F3728"/></linearGradient></defs>
         <g transform="rotate(-10 60 50)">
           <path d="M52 10C52 10 81 40 76 64C72 80 63 89 52 89C41 89 32 80 28 64C23 40 52 10 52 10Z" fill="#38261D"/>
-          <path d="M62 10C62 10 91 40 86 64C82 80 73 89 62 89C51 89 42 80 38 64C33 40 62 10 62 10Z" fill="url(#fzOil3d${uid})" stroke="rgba(248,242,231,0.7)" stroke-width="1.4"/>
+          <path d="M62 10C62 10 91 40 86 64C82 80 73 89 62 89C51 89 42 80 38 64C33 40 62 10 62 10Z" fill="url(#${gradId})" stroke="rgba(248,242,231,0.7)" stroke-width="1.4"/>
           <ellipse cx="69" cy="59" rx="3.8" ry="11" transform="rotate(14 69 59)" fill="rgba(248,242,231,0.72)"/>
         </g>
       </svg>`;
+    } else {
+      out = renderProjectedMeshSvg(t, 120, 100, 38.5, 60, 51, true, className);
     }
-    return renderProjectedMeshSvg(t, 120, 100, 38.5, 60, 51, true, className);
+    svgSide3DCache.set(key, out);
+    return out;
   }
 
   function infer(item) {

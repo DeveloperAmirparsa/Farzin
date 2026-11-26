@@ -16,6 +16,9 @@ const LEGACY_PALETTE = {
 const tehranClockFormatter = new Intl.DateTimeFormat('fa-IR', {
   timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
 });
+const sourceTimeFormatter = new Intl.DateTimeFormat('fa-IR', {
+  timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+});
 const gregorianDateFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit'
 });
@@ -26,6 +29,44 @@ const jalaliWeekdayFormatter = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
   timeZone: 'Asia/Tehran', weekday: 'long'
 });
 const faNumberFormatter = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 });
+const faPadYearFormatter = new Intl.NumberFormat('fa-IR', { useGrouping: false, minimumIntegerDigits: 4 });
+const faPadTwoFormatter = new Intl.NumberFormat('fa-IR', { useGrouping: false, minimumIntegerDigits: 2 });
+
+function detectLowPowerFallback() {
+  if (typeof window.__farzinLowPower === 'boolean') return window.__farzinLowPower;
+  try {
+    const search = String(window.location?.search || '');
+    if (/[?&]lite=0\b/i.test(search)) return false;
+    if (/[?&](?:lite=1|tv=1)\b/i.test(search)) return true;
+    const ua = String(typeof navigator !== 'undefined' ? navigator?.userAgent || '' : '');
+    const isTv = /Tizen|Web0S|webOS|SMART-TV|SmartTV|NetCast|Maple|HbbTV|BRAVIA|AFT|Android TV|GoogleTV|CrKey|Hisense|TCL|Roku|Viera|PhilipsTV|AQUOS|PHILIPS|SAMSUNG.*Browser|LG Browser/i.test(ua);
+    const cores = Number(typeof navigator !== 'undefined' ? navigator?.hardwareConcurrency : NaN);
+    const mem = Number(typeof navigator !== 'undefined' ? navigator?.deviceMemory : NaN);
+    const saveData = Boolean(typeof navigator !== 'undefined' && navigator?.connection?.saveData);
+    const reducedMotion = Boolean(typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)')?.matches);
+    const noBackdrop = typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+      ? (!CSS.supports('backdrop-filter', 'blur(4px)') && !CSS.supports('-webkit-backdrop-filter', 'blur(4px)'))
+      : false;
+    const lowPower = isTv || (Number.isFinite(cores) && cores > 0 && cores <= 4) || (Number.isFinite(mem) && mem > 0 && mem <= 2) || saveData || reducedMotion || noBackdrop;
+    if (document?.documentElement?.classList) {
+      if (lowPower) document.documentElement.classList.add('fz-low-power');
+      if (isTv) document.documentElement.classList.add('fz-tv');
+    }
+    window.__farzinLowPower = lowPower;
+    window.__farzinIsTv = isTv;
+    return lowPower;
+  } catch {
+    return false;
+  }
+}
+let isLowPowerMode = detectLowPowerFallback();
+let cachedReducedMotion = Boolean(typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)')?.matches);
+
+window.addEventListener?.('farzin:perfmodechange', event => {
+  if (event?.detail && typeof event.detail.isLowPower === 'boolean') {
+    isLowPowerMode = event.detail.isLowPower;
+  }
+});
 
 const DEFAULTS = {
   brand: 'گالری طلا و سکه فرزین',
@@ -99,9 +140,22 @@ let newsTimer = null;
 let connectionState = 'connecting';
 let serverOffline = false;
 let lastMainSignature = '';
+let lastMainStructSig = '';
 let lastSideSignature = '';
+let lastSideStructSig = '';
 let lastNewsText = '';
 let currentTheme = 'dark';
+let lastDashboardEtag = '';
+let lastConfigVersion = null;
+let lastConfigFetchedAt = 0;
+let lastDataSnapshotSeq = null;
+let lastLogoCheckedAt = 0;
+let cachedHasMainClone = false;
+let cachedMainCyclePx = 0;
+let cachedTickerLoopWidth = 0;
+let motionRafId = 0;
+let lastMotionPaintAt = 0;
+const fittedNodeCache = typeof WeakMap === 'function' ? new WeakMap() : null;
 const previousBoardPrices = new Map();
 const activeBoardTicks = new Map();
 let boardTickTimer = null;
@@ -135,10 +189,7 @@ function dateInfo() {
   try {
     const p = jalaliDateFormatter.formatToParts(now);
     const get = t => p.find(x => x.type === t)?.value || '00';
-    const faPad = t => new Intl.NumberFormat('fa-IR', {
-      useGrouping: false,
-      minimumIntegerDigits: t === 'year' ? 4 : 2
-    }).format(Number(get(t)));
+    const faPad = t => (t === 'year' ? faPadYearFormatter : faPadTwoFormatter).format(Number(get(t)));
     cachedDateInfo = {
       jalali: `${faPad('year')}/${faPad('month')}/${faPad('day')}`,
       weekday: jalaliWeekdayFormatter.format(now),
@@ -168,9 +219,7 @@ function sourceTime(v) {
   const n = Number(v);
   const d = new Date(numeric ? (n < 1e12 ? n * 1000 : n) : v);
   if (Number.isNaN(d.getTime())) return 'در انتظار نرخ';
-  return new Intl.DateTimeFormat('fa-IR', {
-    timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-  }).format(d);
+  return sourceTimeFormatter.format(d);
 }
 
 function normalize(raw) {
@@ -528,19 +577,50 @@ function fitBoardNumbers() {
   const nodes = document.querySelectorAll(
     '.quote-price:not(.is-missing), .rate-single-price:not(.is-missing), .side-quote-value:not(.is-missing), .side-single-price:not(.is-missing)'
   );
+  const vw = Number(window.innerWidth) || 0;
+  const toCheck = [];
   for (const el of nodes) {
     if (!el || !el.style) continue;
+    const txt = el.textContent || '';
+    const cached = fittedNodeCache?.get(el);
+    if (cached && cached.text === txt && cached.vw === vw) {
+      const desired = cached.fontSize || '';
+      if (el.style.fontSize !== desired) el.style.fontSize = desired;
+      continue;
+    }
     el.style.fontSize = '';
+    toCheck.push({ el, txt });
+  }
+  if (!toCheck.length) return;
+  const updates = [];
+  for (const item of toCheck) {
+    const el = item.el;
     const available = el.clientWidth;
     const needed = el.scrollWidth;
+    let fittedStr = '';
     if (available > 0 && needed > available + 1) {
       const baseSize = parseFloat(window.getComputedStyle(el).fontSize);
       if (Number.isFinite(baseSize) && baseSize > 10) {
         const fitted = Math.max(10, Math.floor((baseSize * available / needed) * 10) / 10);
-        el.style.fontSize = `${fitted}px`;
+        fittedStr = `${fitted}px`;
       }
     }
+    updates.push({ el, txt: item.txt, fittedStr });
   }
+  for (const item of updates) {
+    if (item.fittedStr) item.el.style.fontSize = item.fittedStr;
+    fittedNodeCache?.set(item.el, { text: item.txt, vw, fontSize: item.fittedStr });
+  }
+}
+
+function measureMotionGeometry() {
+  const gap = Math.max(12, Math.min(28, Number(settings?.boardConfig?.mainCardGap) || 18));
+  const mainTrack = $('mainTrack');
+  const mainGrid = $('mainGrid');
+  cachedHasMainClone = Boolean(mainTrack && mainTrack.querySelector?.('[data-loop-clone="true"]'));
+  cachedMainCyclePx = (cachedHasMainClone && mainGrid && mainGrid.offsetHeight) ? (mainGrid.offsetHeight + gap) : 0;
+  const copyA = $('tickerCopyA');
+  cachedTickerLoopWidth = Number(copyA?.offsetWidth) || 0;
 }
 
 function syncOverflowClones(trackId, viewportId) {
@@ -566,7 +646,10 @@ function syncOverflowClones(trackId, viewportId) {
   } else {
     if (cloneEl && cloneEl.remove) cloneEl.remove();
     if (track.style) track.style.transform = '';
+    cardScrollOffset = 0;
   }
+  measureMotionGeometry();
+  ensureMotionLoop();
 }
 
 function isDesktopLockedViewport() {
@@ -736,6 +819,116 @@ function renderSideQueueList(side, forceMeasure = false) {
   syncSideRotation(side.length, cap);
 }
 
+function cardStructureSig(list) {
+  return (list || []).map(item => [
+    cardTickKey(item),
+    item.label || '',
+    item.source || '',
+    item.symbol || '',
+    item.unit || '',
+    item.icon || '',
+    item.divisor || 1,
+    item.showTwoPrices === false ? '1' : '2',
+    item.featured ? 'f' : ''
+  ].join('|')).join('~');
+}
+
+function updateCardElement(el, item, isSide) {
+  if (!el || !el.querySelector) return false;
+  const rate = rateFor(item);
+  let changed = false;
+
+  const tick = activeBoardTicks.get(cardTickKey(item));
+  const activeTick = tick && tick.expiresAt > Date.now() ? tick.dir : '';
+  el.classList?.toggle('is-tick-up', activeTick === 'up');
+  el.classList?.toggle('is-tick-down', activeTick === 'down');
+
+  const setText = (node, text, missing) => {
+    if (!node) return;
+    if (node.textContent !== text) {
+      node.textContent = text;
+      changed = true;
+    }
+    node.classList?.toggle('is-missing', Boolean(missing));
+  };
+
+  if (item.showTwoPrices === false) {
+    const missing = rate?.price === '' || rate?.price === undefined || rate?.price === null;
+    const price = missing ? 'در انتظار نرخ' : faNum(rate.price);
+    setText(el.querySelector(isSide ? '.side-single-price' : '.rate-single-price'), price, missing);
+  } else {
+    const prices = quotePrices(rate, item);
+    setText(el.querySelector(isSide ? '.side-quote-value.is-buy' : '.quote-price.is-buy'), prices.buy, prices.missing);
+    setText(el.querySelector(isSide ? '.side-quote-value.is-sell' : '.quote-price.is-sell'), prices.sell, prices.missing);
+  }
+
+  const metaEl = el.querySelector(isSide ? '.side-card-meta' : '.rate-card-meta');
+  if (metaEl) {
+    const trend = trendMeta(rate);
+    const existingTrend = metaEl.querySelector('.rate-trend');
+    if (!trend) {
+      if (existingTrend) {
+        existingTrend.remove();
+        changed = true;
+      }
+    } else if (existingTrend) {
+      const targetClass = `rate-trend rate-trend-glow fz-tabular ${trend.dir}`;
+      if (existingTrend.className !== targetClass) {
+        existingTrend.className = targetClass;
+        changed = true;
+      }
+      const arrowEl = existingTrend.querySelector('.rate-trend-arrow');
+      const valEl = existingTrend.querySelector('.rate-trend-value');
+      if (arrowEl && arrowEl.textContent !== trend.arrow) {
+        arrowEl.textContent = trend.arrow;
+        changed = true;
+      }
+      if (valEl && valEl.textContent !== trend.value) {
+        valEl.textContent = trend.value;
+        changed = true;
+      }
+      const nextAria = `میزان تغییر نرخ ${trend.label}`;
+      if (existingTrend.getAttribute('aria-label') !== nextAria) existingTrend.setAttribute('aria-label', nextAria);
+    } else {
+      metaEl.insertAdjacentHTML('afterbegin', renderTrendGlowCardHtml(rate));
+      changed = true;
+    }
+  }
+
+  const range = rangeMeta(rate);
+  const existingRange = el.querySelector('.card-range');
+  if (!range) {
+    if (existingRange) {
+      existingRange.remove();
+      changed = true;
+    }
+  } else if (existingRange) {
+    const bounds = existingRange.querySelectorAll('.card-range-bound');
+    const fill = existingRange.querySelector('.card-range-fill');
+    const dot = existingRange.querySelector('.card-range-dot');
+    const pctStr = `${range.pct}%`;
+    if (bounds[0] && bounds[0].textContent !== range.lowLabel) { bounds[0].textContent = range.lowLabel; changed = true; }
+    if (bounds[1] && bounds[1].textContent !== range.highLabel) { bounds[1].textContent = range.highLabel; changed = true; }
+    if (fill && fill.style.width !== pctStr) { fill.style.width = pctStr; changed = true; }
+    if (dot && dot.style.left !== pctStr) { dot.style.left = pctStr; changed = true; }
+  } else {
+    el.insertAdjacentHTML('beforeend', renderRangeHtml(rate));
+    changed = true;
+  }
+  return changed;
+}
+
+function updateCardsInPlace(container, items, isSide) {
+  if (!container || !container.children || container.children.length !== items.length) return null;
+  let anyChanged = false;
+  for (let i = 0; i < items.length; i++) {
+    const card = container.children[i];
+    if (!card || card.getAttribute?.('data-card-id') !== cardTickKey(items[i])) return null;
+    if (updateCardElement(card, items[i], isSide)) anyChanged = true;
+  }
+  return anyChanged;
+}
+
 function render() {
   applyThemeAndDesignTokens();
   const bc = settings.boardConfig || {};
@@ -749,11 +942,18 @@ function render() {
   if (marketEl) {
     const open = latestPayload?.market_open;
     const label = open === true ? 'بازار باز است' : open === false ? 'بازار بسته است' : 'در حال بررسی بازار';
-    marketEl.className = `telemetry-val ${open === true ? 'is-open' : open === false ? 'is-closed' : 'is-unknown'}`;
-    marketEl.innerHTML = `<span class="market-indicator" aria-hidden="true"></span><span>${esc(label)}</span>`;
+    const nextCls = `telemetry-val ${open === true ? 'is-open' : open === false ? 'is-closed' : 'is-unknown'}`;
+    if (marketEl.className !== nextCls) marketEl.className = nextCls;
+    const textSpan = marketEl.querySelector?.('span:last-child');
+    if (textSpan) {
+      if (textSpan.textContent !== label) textSpan.textContent = label;
+    } else {
+      marketEl.innerHTML = `<span class="market-indicator" aria-hidden="true"></span><span>${esc(label)}</span>`;
+    }
   }
   if ($('lastQuoteTime')) {
-    $('lastQuoteTime').textContent = latestPayload?.updated_at ? sourceTime(latestPayload.updated_at) : 'در انتظار نرخ';
+    const quoteText = latestPayload?.updated_at ? sourceTime(latestPayload.updated_at) : 'در انتظار نرخ';
+    if ($('lastQuoteTime').textContent !== quoteText) $('lastQuoteTime').textContent = quoteText;
   }
 
   const showMain = bc.showMainRates !== false;
@@ -773,36 +973,73 @@ function render() {
   if ($('mainCountLabel')) $('mainCountLabel').textContent = `${faNum(rows.length)} نماد فعال`;
   if ($('sideCountLabel')) $('sideCountLabel').textContent = `${faNum(side.length)} نماد`;
 
-  const mainHtml = rows.length
-    ? rows.map(renderMainCardHtml).join('')
-    : '<div class="stage-empty">برای نمایش نرخ، از بخش کانفیگ تابلو ردیف اضافه کنید.</div>';
-  const sideHtmlFull = side.length
-    ? side.map(item => renderSideCardHtml(item)).join('')
-    : '<div class="stage-empty">دارایی جانبی تعریف نشده است.</div>';
-
   const footerItems = (bc.footerLines || [])
     .filter(x => x.visible !== false && String(x.text || '').trim())
     .slice(0, 5);
   const footerEl = $('boardFooter');
   if (footerEl) footerEl.hidden = bc.showFooter === false && settings.showAttribution === false;
-  if ($('footerLines')) {
-    $('footerLines').innerHTML = bc.showFooter !== false
+  const footerLinesEl = $('footerLines');
+  if (footerLinesEl) {
+    const nextFooterHtml = bc.showFooter !== false
       ? footerItems.map((line, i) => `${i > 0 ? '<span class="footer-sep" aria-hidden="true">·</span>' : ''}<span>${esc(line.text)}</span>`).join('')
       : '';
+    if (footerLinesEl.innerHTML !== nextFooterHtml) footerLinesEl.innerHTML = nextFooterHtml;
   }
 
-  const mainSig = `${currentTheme}::${mainHtml}::${bc.mainColumns}::${bc.sidePanelPercent}::${bc.mainFontScale}`;
-  if (mainSig !== lastMainSignature) {
-    lastMainSignature = mainSig;
-    if ($('mainGrid')) $('mainGrid').innerHTML = mainHtml;
-    fitBoardNumbers();
-    syncOverflowClones('mainTrack', 'mainViewport');
+  const mainGrid = $('mainGrid');
+  const mainStructSig = `${currentTheme}::${cardStructureSig(rows)}::${bc.mainColumns}::${bc.sidePanelPercent}::${bc.mainFontScale}`;
+  if (mainGrid) {
+    let patchedInPlace = false;
+    if (mainStructSig === lastMainStructSig && rows.length && typeof mainGrid.querySelectorAll === 'function') {
+      const res = updateCardsInPlace(mainGrid, rows, false);
+      if (res !== null) {
+        patchedInPlace = true;
+        if (res) {
+          fitBoardNumbers();
+          const cloneEl = $('mainTrack')?.querySelector?.('[data-loop-clone="true"]');
+          if (cloneEl) cloneEl.innerHTML = mainGrid.innerHTML;
+          measureMotionGeometry();
+        }
+      }
+    }
+    if (!patchedInPlace) {
+      const mainHtml = rows.length
+        ? rows.map(renderMainCardHtml).join('')
+        : '<div class="stage-empty">برای نمایش نرخ، از بخش کانفیگ تابلو ردیف اضافه کنید.</div>';
+      const mainSig = `${mainStructSig}::${mainHtml}`;
+      if (mainSig !== lastMainSignature) {
+        lastMainSignature = mainSig;
+        lastMainStructSig = mainStructSig;
+        mainGrid.innerHTML = mainHtml;
+        fitBoardNumbers();
+        syncOverflowClones('mainTrack', 'mainViewport');
+      }
+    }
   }
 
-  const sideSig = `${currentTheme}::${sideHtmlFull}::${bc.sidePanelPercent}::${bc.sideFontScale}::${bc.cardScrollSpeed}`;
-  if (sideSig !== lastSideSignature && !isSideAnimating) {
-    lastSideSignature = sideSig;
-    renderSideQueueList(side, sideVisibleCapacity === null);
+  const sideList = $('sideList');
+  const sideStructSig = `${currentTheme}::${cardStructureSig(side)}::${bc.sidePanelPercent}::${bc.sideFontScale}::${bc.cardScrollSpeed}`;
+  if (sideList && !isSideAnimating) {
+    let patchedSideInPlace = false;
+    if (sideStructSig === lastSideStructSig && side.length && typeof sideList.querySelectorAll === 'function') {
+      const cap = Number.isInteger(sideVisibleCapacity) && sideVisibleCapacity > 0
+        ? Math.min(side.length, sideVisibleCapacity)
+        : side.length;
+      const visibleSlice = visibleSideSlice(side, sideHeadIndex, cap);
+      const res = updateCardsInPlace(sideList, visibleSlice, true);
+      if (res !== null) {
+        patchedSideInPlace = true;
+        if (res) fitBoardNumbers();
+      }
+    }
+    if (!patchedSideInPlace) {
+      const sideSig = `${sideStructSig}::${sideHeadIndex}`;
+      if (sideSig !== lastSideSignature) {
+        lastSideSignature = sideSig;
+        lastSideStructSig = sideStructSig;
+        renderSideQueueList(side, sideVisibleCapacity === null);
+      }
+    }
   }
 
   const tickerEl = $('boardTicker');
@@ -813,52 +1050,72 @@ function render() {
     lastNewsText = msg;
     if ($('tickerCopyA')) $('tickerCopyA').textContent = msg;
     if ($('tickerCopyB')) $('tickerCopyB').textContent = msg;
+    cachedTickerLoopWidth = Number($('tickerCopyA')?.offsetWidth) || cachedTickerLoopWidth;
   }
 
   updateChronosAndStatus();
+  ensureMotionLoop();
+  window.FarzinSpatialNav?.refreshFocusables?.();
+}
+
+function shouldRunMotionLoop() {
+  if (document.hidden || cachedReducedMotion) return false;
+  const mainActive = isDesktopLockedViewport() && cachedHasMainClone && cachedMainCyclePx > 0;
+  const tickerActive = settings?.boardConfig?.showNewsTicker !== false && cachedTickerLoopWidth > 0;
+  return mainActive || tickerActive;
+}
+
+function ensureMotionLoop() {
+  if (motionRafId || !shouldRunMotionLoop()) return;
+  if (typeof window.requestAnimationFrame === 'function') {
+    motionRafId = window.requestAnimationFrame(animateBoardMotion);
+  }
 }
 
 function animateBoardMotion(timestamp) {
+  motionRafId = 0;
   const now = Number(timestamp) || Date.now();
-  if (document.hidden) {
+  if (document.hidden || cachedReducedMotion) {
     tickerLastFrameAt = now;
+    return;
+  }
+  if (!shouldRunMotionLoop()) {
+    tickerLastFrameAt = 0;
+    return;
+  }
+  if (isLowPowerMode && lastMotionPaintAt && (now - lastMotionPaintAt) < 32) {
+    if (typeof window.requestAnimationFrame === 'function') {
+      motionRafId = window.requestAnimationFrame(animateBoardMotion);
+    }
     return;
   }
   if (!tickerLastFrameAt) tickerLastFrameAt = now;
   const dt = Math.max(0, Math.min(0.05, (now - tickerLastFrameAt) / 1000));
   tickerLastFrameAt = now;
+  lastMotionPaintAt = now;
 
-  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const scrollSpeed = Math.max(5, Math.min(120, Number(settings?.boardConfig?.cardScrollSpeed) || 32));
   const canScrollViewport = isDesktopLockedViewport();
-
-  if (!reducedMotion && canScrollViewport) {
-    const gap = Math.max(12, Math.min(28, Number(settings?.boardConfig?.mainCardGap) || 18));
+  if (canScrollViewport && cachedHasMainClone && cachedMainCyclePx > 0) {
     const mainTrack = $('mainTrack');
-    const mainGrid = $('mainGrid');
-    const mainViewport = $('mainViewport');
-    if (mainTrack && mainGrid && mainViewport && mainTrack.querySelector?.('[data-loop-clone="true"]')) {
-      const cycle = mainGrid.offsetHeight + gap;
-      if (cycle > 0) {
-        cardScrollOffset = (cardScrollOffset + scrollSpeed * dt) % cycle;
-        if (mainTrack.style) mainTrack.style.transform = `translate3d(0, ${-cardScrollOffset.toFixed(1)}px, 0)`;
-      }
+    if (mainTrack && mainTrack.style) {
+      const scrollSpeed = Math.max(5, Math.min(120, Number(settings?.boardConfig?.cardScrollSpeed) || 32));
+      cardScrollOffset = (cardScrollOffset + scrollSpeed * dt) % cachedMainCyclePx;
+      mainTrack.style.transform = `translate3d(0, ${-cardScrollOffset.toFixed(1)}px, 0)`;
     }
   }
 
-  if (!reducedMotion && settings?.boardConfig?.showNewsTicker !== false) {
-    const copyA = $('tickerCopyA');
+  if (settings?.boardConfig?.showNewsTicker !== false && cachedTickerLoopWidth > 0) {
     const track = $('tickerTrack');
-    const loopWidth = copyA?.offsetWidth || 0;
-    if (track && loopWidth > 0) {
+    if (track && track.style) {
       const tickerSpeed = Math.max(5, Math.min(180, Number(settings?.boardConfig?.tickerSpeed) || 65));
-      tickerOffset = (tickerOffset + tickerSpeed * dt) % loopWidth;
-      if (track.style) track.style.transform = `translate3d(${(-tickerOffset).toFixed(1)}px, 0, 0)`;
+      tickerOffset = (tickerOffset + tickerSpeed * dt) % cachedTickerLoopWidth;
+      track.style.transform = `translate3d(${(-tickerOffset).toFixed(1)}px, 0, 0)`;
     }
   }
 
-  if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(animateBoardMotion);
-  else setTimeout(() => animateBoardMotion(Date.now()), 33);
+  if (typeof window.requestAnimationFrame === 'function') {
+    motionRafId = window.requestAnimationFrame(animateBoardMotion);
+  }
 }
 
 function isValidRate(item) {
@@ -923,34 +1180,49 @@ window.addEventListener('unhandledrejection', event => {
   console.error('[Farzin Board rejection]', event.reason);
 });
 
-async function fetchJson(url, timeoutMs = 7000) {
+async function fetchJson(url, timeoutMs = 7000, extraHeaders = null) {
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
-    const options = { cache: 'no-store', headers: { 'Accept': 'application/json' } };
+    const headers = { 'Accept': 'application/json', ...(extraHeaders || {}) };
+    const options = { cache: 'no-store', headers };
     if (controller) options.signal = controller.signal;
     const response = await fetch(url, options);
+    if (response.status === 304) {
+      return { __unchanged: true, __etag: response.headers?.get?.('ETag') || '' };
+    }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    if (data && typeof data === 'object' && response.headers?.get) {
+      const etag = response.headers.get('ETag');
+      if (etag) data.__etag = etag;
+    }
     return data;
   } finally {
     if (timer) clearTimeout(timer);
   }
 }
 
+function applyLogoVersion(nextVersion) {
+  if (!nextVersion || logoVersion === nextVersion) return;
+  logoVersion = nextVersion;
+  const src = `/farzin-logo.png?v=${encodeURIComponent(nextVersion)}`;
+  if ($('boardLogo')) $('boardLogo').src = src;
+  if ($('watermarkImg')) $('watermarkImg').src = src;
+}
+
 async function refreshLogo() {
+  const now = Date.now();
+  if (logoVersion !== null && now - lastLogoCheckedAt < 30_000) return;
+  lastLogoCheckedAt = now;
   try {
     const data = await fetchJson('/api/logo-meta', 3000);
-    if (logoVersion !== data.version) {
-      logoVersion = data.version;
-      const src = `/farzin-logo.png?v=${encodeURIComponent(data.version)}`;
-      if ($('boardLogo')) $('boardLogo').src = src;
-      if ($('watermarkImg')) $('watermarkImg').src = src;
-    }
+    if (data && data.version) applyLogoVersion(data.version);
   } catch {}
 }
 
 async function refreshNews(force = false) {
+  if (document.hidden && !force) return;
   const interval = Math.max(60, Math.min(900, Number(settings.boardConfig?.newsRefreshSeconds || 180))) * 1000;
   if (!force && Date.now() - lastNewsFetch < interval) return;
   lastNewsFetch = Date.now();
@@ -973,35 +1245,79 @@ function scheduleNews() {
 }
 
 async function refreshAll() {
-  if (pollInProgress) return;
+  if (pollInProgress || document.hidden) return;
   pollInProgress = true;
   if (!hasUsableRates(latestPayload)) {
     connectionState = 'connecting';
     latestError = 'در حال دریافت نرخ‌ها از TGJU…';
     render();
   }
-  nextRefreshAt = Date.now() + 1000;
+  const nowMs = Date.now();
+  nextRefreshAt = nowMs + 1000;
   let retrySoon = false;
   try {
-    void refreshLogo();
     const settle = promise => promise.then(value => ({ status: 'fulfilled', value }), reason => ({ status: 'rejected', reason }));
+    const dataHeaders = { 'X-Farzin-View': 'board' };
+    if (lastDashboardEtag) dataHeaders['If-None-Match'] = lastDashboardEtag;
+
+    const shouldFetchConfig = lastConfigFetchedAt === 0 || (lastConfigVersion === null && nowMs - lastConfigFetchedAt > 60_000);
     const [configResult, dataResult] = await Promise.all([
-      settle(fetchJson('/api/public-config', 2500)),
-      settle(fetchJson('/api/dashboard-data', 3500))
+      shouldFetchConfig ? settle(fetchJson('/api/public-config', 2500)) : Promise.resolve(null),
+      settle(fetchJson('/api/dashboard-data', 3500, dataHeaders))
     ]);
+
     let configError = '';
-    if (configResult.status === 'fulfilled') {
-      const config = configResult.value;
-      if (config.settings) settings = normalize(config.settings);
-    } else {
-      configError = `تنظیمات محلی: ${configResult.reason?.message || 'دریافت نشد'}`;
+    let configChanged = false;
+    if (configResult) {
+      if (configResult.status === 'fulfilled') {
+        const config = configResult.value;
+        lastConfigFetchedAt = Date.now();
+        if (config.configVersion !== undefined) lastConfigVersion = config.configVersion;
+        if (config.settings) {
+          settings = normalize(config.settings);
+          configChanged = true;
+        }
+      } else {
+        configError = `تنظیمات محلی: ${configResult.reason?.message || 'دریافت نشد'}`;
+      }
     }
+
     if (dataResult.status === 'rejected') {
       serverOffline = true;
       throw dataResult.reason || new Error('سرور محلی پاسخ نداد.');
     }
     serverOffline = false;
     const data = dataResult.value || {};
+    if (data.__etag) lastDashboardEtag = data.__etag;
+
+    if (data.__unchanged) {
+      if (configChanged) render();
+      return;
+    }
+
+    if (data.logoVersion !== undefined && data.logoVersion !== null) {
+      applyLogoVersion(data.logoVersion);
+    } else if (logoVersion === null) {
+      void refreshLogo();
+    }
+
+    if (data.configVersion !== undefined && data.configVersion !== lastConfigVersion) {
+      lastConfigVersion = data.configVersion;
+      try {
+        const cfg = await fetchJson('/api/public-config', 2500);
+        lastConfigFetchedAt = Date.now();
+        if (cfg.settings) {
+          settings = normalize(cfg.settings);
+          configChanged = true;
+        }
+      } catch {}
+    }
+
+    if (data.snapshotSeq !== undefined && data.snapshotSeq === lastDataSnapshotSeq && !configChanged) {
+      return;
+    }
+    if (data.snapshotSeq !== undefined) lastDataSnapshotSeq = data.snapshotSeq;
+
     const receivedRates = hasUsableRates(data);
     if (receivedRates) {
       livePrices = mergeValidRates(livePrices, data.prices);
@@ -1075,7 +1391,7 @@ async function refreshAll() {
     const retryDelay = retrySoon ? 2000 : interval;
     nextRefreshAt = Date.now() + retryDelay;
     updateChronosAndStatus();
-    scheduleRefresh(retryDelay);
+    if (!document.hidden) scheduleRefresh(retryDelay);
   }
 }
 
@@ -1111,13 +1427,55 @@ function revealBoardControls() {
 function handleResize() {
   stopSideRotation();
   sideVisibleCapacity = null;
+  lastSideSignature = '';
   fitBoardNumbers();
   syncOverflowClones('mainTrack', 'mainViewport');
   renderSideQueueList(sideRows(), true);
+  measureMotionGeometry();
+  ensureMotionLoop();
+}
+
+if (window.FarzinSpatialNav) {
+  window.FarzinSpatialNav.onRevealControls = revealBoardControls;
+  window.FarzinSpatialNav.onHideControls = () => {
+    const controls = $('boardControls');
+    if (controls && controls.classList) controls.classList.add('hidden');
+  };
+}
+
+function handleBoardKeyDown(event) {
+  const key = event?.key || '';
+  if (!key) return;
+  const tag = event.target?.tagName || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+  if (!window.FarzinSpatialNav && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', 'Escape', 'Backspace', 'XF86Back', 'BrowserBack'].includes(key)) {
+    revealBoardControls();
+    const controls = $('boardControls');
+    if (controls && typeof controls.querySelectorAll === 'function' && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+      const focusables = [...controls.querySelectorAll('button:not([disabled]), a[href]')].filter(el => !el.hidden);
+      if (focusables.length) {
+        const idx = focusables.indexOf(document.activeElement);
+        const step = key === 'ArrowLeft' ? 1 : -1;
+        const nextIdx = idx === -1 ? 0 : (idx + step + focusables.length) % focusables.length;
+        focusables[nextIdx]?.focus?.();
+        event.preventDefault?.();
+      }
+    }
+  } else if (key === 'r' || key === 'R') {
+    $('refreshBtn')?.click?.();
+  } else if (key === 't' || key === 'T') {
+    $('themeToggleBtn')?.click?.();
+  } else if (key === 'f' || key === 'F') {
+    $('fullscreenBtn')?.click?.();
+  } else if (key === 'p' || key === 'P') {
+    window.FarzinPerformanceManager?.toggle?.();
+  }
 }
 
 document.addEventListener('mousemove', revealBoardControls);
 document.addEventListener('touchstart', revealBoardControls, { passive: true });
+document.addEventListener('keydown', handleBoardKeyDown);
 window.addEventListener('resize', handleResize);
 document.fonts?.ready?.then(handleResize);
 if (typeof window.ResizeObserver === 'function') {
@@ -1140,22 +1498,30 @@ render();
 window.__farzinBoardBooted = true;
 if (window.__farzinBoardBootTimer) clearTimeout(window.__farzinBoardBootTimer);
 
-setInterval(updateChronosAndStatus, 1000);
+setInterval(() => {
+  if (!document.hidden) updateChronosAndStatus();
+}, 1000);
 refreshNews(true).finally(scheduleNews);
 refreshAll();
-if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(animateBoardMotion);
-else setTimeout(() => animateBoardMotion(Date.now()), 33);
+ensureMotionLoop();
 
 window.addEventListener('online', () => { clearTimeout(refreshTimer); refreshAll(); });
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     tickerLastFrameAt = 0;
-    if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(animateBoardMotion);
+    lastMotionPaintAt = 0;
+    updateChronosAndStatus();
+    ensureMotionLoop();
     syncSideRotation(sideRows().length, Number(sideVisibleCapacity) || sideRows().length);
     clearTimeout(refreshTimer);
     refreshAll();
   } else {
     stopSideRotation();
+    clearTimeout(refreshTimer);
+    if (motionRafId && typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(motionRafId);
+      motionRafId = 0;
+    }
   }
 });
 
@@ -1171,9 +1537,10 @@ function scheduleRefresh(delayMs) {
 }
 
 (() => {
+  if (isLowPowerMode) return;
   if (typeof window.matchMedia !== 'function') return;
   if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (cachedReducedMotion) return;
   const stage = $('boardStage');
   if (!stage || typeof stage.addEventListener !== 'function') return;
 
@@ -1206,6 +1573,7 @@ function scheduleRefresh(delayMs) {
   };
 
   stage.addEventListener('pointermove', event => {
+    if (isLowPowerMode) return;
     const card = event.target?.closest?.('.rate-card, .side-card');
     if (activeCard && activeCard !== card) resetCard(activeCard);
     activeCard = card || null;

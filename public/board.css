@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Naskh+Arabic:wght@500;600;700&family=Vazirmatn:wght@400;500;600;700;800&display=swap');
-
 @property --board-border-angle {
   syntax: '<angle>';
   inherits: false;
@@ -157,6 +155,7 @@ body::before {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   width: 100%;
+  min-height: 100vh;
   min-height: 100dvh;
   padding: max(8px, calc(0.9 * var(--u))) var(--board-shell-pad-x) 0;
   gap: max(6px, calc(0.75 * var(--u)));
@@ -473,6 +472,7 @@ html[data-theme="light"] .masthead-logo {
   box-shadow: var(--board-card-shadow), var(--board-inner-glow);
   min-width: 0;
   overflow: hidden;
+  contain: layout style paint;
   transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(var(--tz, 0px));
   transition: transform 260ms var(--board-ease), border-color var(--board-duration) var(--board-ease), box-shadow 260ms var(--board-ease), background-color var(--board-duration) var(--board-ease);
 }
@@ -498,7 +498,6 @@ html[data-theme="light"] .masthead-logo {
   pointer-events: none;
   opacity: 0.24;
   transition: opacity 260ms var(--board-ease);
-  animation: board-border-spin var(--board-border-speed) linear infinite;
 }
 
 .rate-card:hover {
@@ -508,6 +507,7 @@ html[data-theme="light"] .masthead-logo {
 
 .rate-card:hover::before {
   opacity: 1;
+  animation: board-border-spin var(--board-border-speed) linear infinite;
 }
 
 .rate-card.is-featured {
@@ -726,8 +726,6 @@ html[data-theme="light"] .side-card:hover .card-bg-emblem {
   flex-shrink: 0;
   border: 1px solid transparent;
   letter-spacing: 0.01em;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
   transition: box-shadow 240ms var(--board-ease), border-color 240ms var(--board-ease), transform 240ms var(--board-ease);
 }
 
@@ -839,6 +837,7 @@ html[data-theme="light"] .rate-trend.flat {
   border-radius: max(10px, calc(0.74 * var(--u)));
   box-shadow: var(--board-card-shadow), var(--board-inner-glow);
   overflow: hidden;
+  contain: layout style paint;
   transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(var(--tz, 0px));
   transition: transform 260ms var(--board-ease), border-color var(--board-duration) var(--board-ease), box-shadow 260ms var(--board-ease), opacity 260ms var(--board-ease);
 }
@@ -894,7 +893,6 @@ html[data-theme="light"] .rate-trend.flat {
   pointer-events: none;
   opacity: 0.2;
   transition: opacity 260ms var(--board-ease);
-  animation: board-border-spin var(--board-border-speed) linear infinite;
 }
 
 .side-card:hover {
@@ -904,6 +902,7 @@ html[data-theme="light"] .rate-trend.flat {
 
 .side-card:hover::before {
   opacity: 0.9;
+  animation: board-border-spin var(--board-border-speed) linear infinite;
 }
 
 .side-card-top {
@@ -1181,7 +1180,6 @@ html[data-theme="light"] .rate-trend.flat {
   white-space: nowrap;
   flex-shrink: 0;
   z-index: 2;
-  animation: board-gold-sweep 5s ease infinite;
 }
 
 .ticker-viewport {
@@ -1274,9 +1272,14 @@ html[data-theme="light"] .board-controls {
 
 .board-controls button:hover,
 .board-controls a:hover,
-.board-controls .farzin-logout:hover {
-  border-color: var(--board-gold);
+.board-controls .farzin-logout:hover,
+.board-controls button:focus-visible,
+.board-controls a:focus-visible,
+.board-controls .farzin-logout:focus-visible {
+  border-color: var(--board-gold-strong);
   background-color: var(--board-gold-soft);
+  outline: 2px solid var(--board-gold-strong);
+  outline-offset: 2px;
 }
 
 .board-controls .farzin-logout {
@@ -1327,6 +1330,7 @@ html[data-theme="light"] .board-controls {
 /* Desktop/TV Locked Viewport Mode (>= 1024px wide & >= 620px tall) */
 @media (min-width: 1024px) and (min-height: 620px) {
   :root {
+    --u: min(1vw, 1.7778vh);
     --u: min(1vw, 1.7778dvh);
     --board-shell-pad-x: max(10px, calc(1.35 * var(--u)));
     --board-gap: max(8px, calc(var(--board-gap-u, 0.9375) * var(--u)));
@@ -1340,6 +1344,7 @@ html[data-theme="light"] .board-controls {
   }
 
   .board-shell {
+    height: 100vh;
     height: 100dvh;
     overflow: hidden;
   }
@@ -1472,3 +1477,105 @@ html[data-theme="light"] .board-controls {
     transform: none !important;
   }
 }
+
+/* Smart TV & Low-Power Hardware Mode */
+html.fz-low-power {
+  --board-surface: rgba(43, 29, 22, 0.94);
+  --board-surface-elevated: rgba(56, 38, 29, 0.97);
+  --board-surface-inset: #19100C;
+  --board-card-shadow: 0 6px 14px rgba(10, 6, 4, 0.42);
+  --board-card-shadow-hover: 0 8px 18px rgba(10, 6, 4, 0.5);
+  --board-inner-glow: inset 0 1px 0 rgba(248, 242, 231, 0.08);
+}
+
+html.fz-low-power[data-theme="light"] {
+  --board-surface: #FFFDF8;
+  --board-surface-elevated: #F5ECE0;
+  --board-card-shadow: 0 4px 12px rgba(33, 21, 15, 0.08);
+  --board-card-shadow-hover: 0 6px 16px rgba(33, 21, 15, 0.12);
+}
+
+html.fz-low-power body::before {
+  display: none;
+}
+
+html.fz-low-power .board-masthead,
+html.fz-low-power .rate-card,
+html.fz-low-power .side-card,
+html.fz-low-power .board-ticker,
+html.fz-low-power .board-controls {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html.fz-low-power .rate-card,
+html.fz-low-power .side-card,
+html.fz-low-power .card-bg-emblem {
+  transform: none !important;
+  transition: border-color 140ms linear !important;
+}
+
+html.fz-low-power .rate-card::before,
+html.fz-low-power .side-card::before {
+  animation: none !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+  background: none !important;
+  border: 1px solid var(--board-line-subtle);
+}
+
+html.fz-low-power .rate-card.is-featured::before {
+  border-color: var(--board-line);
+}
+
+html.fz-low-power .rate-trend.up,
+html.fz-low-power .rate-trend.down,
+html.fz-low-power .rate-trend.flat {
+  text-shadow: none;
+}
+
+html.fz-low-power .rate-trend.up {
+  box-shadow: 0 0 8px rgba(164, 198, 144, 0.25);
+}
+
+html.fz-low-power .rate-trend.down {
+  box-shadow: 0 0 8px rgba(212, 119, 134, 0.28);
+}
+
+html.fz-low-power .rate-card.is-tick-up,
+html.fz-low-power .side-card.is-tick-up,
+html.fz-low-power .rate-card.is-tick-down,
+html.fz-low-power .side-card.is-tick-down {
+  animation-duration: 0.8s;
+}
+
+/* Spatial D-Pad Focus Visual Indicators */
+html.fz-spatial-nav .rate-card:focus,
+html.fz-spatial-nav .rate-card.fz-spatial-focused,
+html.fz-spatial-nav .side-card:focus,
+html.fz-spatial-nav .side-card.fz-spatial-focused,
+.rate-card:focus-visible,
+.side-card:focus-visible {
+  outline: 3px solid var(--board-gold-strong);
+  outline-offset: 3px;
+  border-color: var(--board-gold);
+  box-shadow: 0 0 0 5px rgba(197, 168, 117, 0.24), var(--board-card-shadow-hover);
+  z-index: 4;
+}
+
+html.fz-low-power.fz-spatial-nav .rate-card:focus,
+html.fz-low-power.fz-spatial-nav .rate-card.fz-spatial-focused,
+html.fz-low-power.fz-spatial-nav .side-card:focus,
+html.fz-low-power.fz-spatial-nav .side-card.fz-spatial-focused {
+  outline: 3px solid var(--board-gold-strong);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(197, 168, 117, 0.35);
+}
+
+html.fz-spatial-nav .source-credit:focus,
+.source-credit:focus-visible {
+  outline: 2px solid var(--board-gold-strong);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+

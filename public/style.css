@@ -52,6 +52,9 @@
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
+}
+
+.fz-preview-card:hover::before {
   animation: fz-border-spin var(--fz-border-speed) linear infinite;
 }
 
@@ -533,4 +536,17 @@
   .fz-preview-card {
     transform: none !important;
   }
+}
+
+html.fz-low-power .fz-preview-card {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  transform: none !important;
+}
+
+html.fz-low-power .fz-preview-card::before {
+  animation: none !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+  background: none !important;
 }

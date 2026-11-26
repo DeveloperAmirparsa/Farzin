@@ -43,6 +43,9 @@
   mask-composite: exclude;
   pointer-events: none;
   z-index: 3;
+}
+
+.fz-login-shell:hover::before {
   animation: fz-border-spin var(--fz-border-speed) linear infinite;
 }
 
@@ -264,4 +267,17 @@
   .fz-login-shell {
     transform: none !important;
   }
+}
+
+html.fz-low-power .fz-login-shell {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  transform: none !important;
+}
+
+html.fz-low-power .fz-login-shell::before {
+  animation: none !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+  background: none !important;
 }

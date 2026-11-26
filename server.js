@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const zlib = require('node:zlib');
 
 // Tiny .env reader keeps the app dependency-free. Environment variables already
 // supplied by the shell always take precedence over values from the local file.
@@ -61,6 +62,70 @@ function readJson(file, fallback) {
 function writeJson(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2), { encoding: 'utf8', mode: 0o600 });
 }
+let settingsCache = { mtimeMs: -1, checkedAt: 0, value: null, version: 1, assetSymbols: [] };
+function extractAssetSymbols(raw) {
+  if (!raw || typeof raw !== 'object') return [];
+  const syms = new Set();
+  for (const sec of (Array.isArray(raw.sections) ? raw.sections : [])) {
+    for (const row of (Array.isArray(sec?.rows) ? sec.rows : [])) {
+      const k = String(row?.symbol || row?.source || '').trim();
+      if (k && k !== 'manual' && k !== 'custom') syms.add(k);
+    }
+  }
+  for (const row of (Array.isArray(raw.sideRates) ? raw.sideRates : [])) {
+    const k = String(row?.symbol || row?.source || '').trim();
+    if (k && k !== 'manual' && k !== 'custom') syms.add(k);
+  }
+  return [...syms];
+}
+function getCachedSettingsInfo() {
+  const now = Date.now();
+  if (now - settingsCache.checkedAt < 1000 && settingsCache.checkedAt > 0) return settingsCache;
+  settingsCache.checkedAt = now;
+  try {
+    const st = fs.statSync(SETTINGS_FILE);
+    if (st.mtimeMs !== settingsCache.mtimeMs) {
+      const parsed = readJson(SETTINGS_FILE, null);
+      settingsCache.mtimeMs = st.mtimeMs;
+      settingsCache.value = parsed;
+      settingsCache.version += 1;
+      settingsCache.assetSymbols = extractAssetSymbols(parsed);
+      serializedSnapshotCache.clear();
+    }
+  } catch {
+    if (settingsCache.mtimeMs !== -1) {
+      settingsCache.mtimeMs = -1;
+      settingsCache.value = null;
+      settingsCache.version += 1;
+      settingsCache.assetSymbols = [];
+      serializedSnapshotCache.clear();
+    }
+  }
+  return settingsCache;
+}
+let logoMetaCache = { checkedAt: 0, version: 0, size: 0, ok: false };
+function getLogoMetaCached(force = false) {
+  const now = Date.now();
+  if (!force && now - logoMetaCache.checkedAt < 2500 && logoMetaCache.checkedAt > 0) return logoMetaCache;
+  logoMetaCache.checkedAt = now;
+  try {
+    const st = fs.statSync(path.join(ROOT, 'farzin-logo.png'));
+    if (st.mtimeMs !== logoMetaCache.version || st.size !== logoMetaCache.size) {
+      logoMetaCache = { checkedAt: now, version: st.mtimeMs, size: st.size, ok: true };
+      serializedSnapshotCache.clear();
+    }
+  } catch {
+    logoMetaCache = { checkedAt: now, version: 0, size: 0, ok: false };
+  }
+  return logoMetaCache;
+}
+function acceptsGzip(req) {
+  return /\bgzip\b/i.test(String(req?.headers?.['accept-encoding'] || ''));
+}
+const COMPRESSIBLE_EXTS = new Set(['.html', '.css', '.js', '.svg', '.json', '.webmanifest']);
+const staticFileCache = new Map();
+const serializedSnapshotCache = new Map();
+let snapshotSeq = 1;
 const responseCache = new Map();
 const inflightRequests = new Map();
 async function cached(key, ttlMs, factory) {
@@ -360,6 +425,8 @@ async function refreshTgjuSnapshot(force = false) {
     try {
       const { current, feed } = await fetchTgjuFeed();
       tgjuSnapshot = makeTgjuSnapshot(current, feed);
+      snapshotSeq += 1;
+      serializedSnapshotCache.clear();
       tgjuLastSuccessAt = Date.now();
       tgjuLastError = '';
       return tgjuSnapshot;
@@ -372,25 +439,75 @@ async function refreshTgjuSnapshot(force = false) {
         last_attempt_at: new Date().toISOString(),
         providers: { tgju: Boolean(tgjuSnapshot.hasPrices) }
       };
+      snapshotSeq += 1;
+      serializedSnapshotCache.clear();
       return tgjuSnapshot;
     } finally { tgjuRefreshPromise = null; }
   })();
   return tgjuRefreshPromise;
 }
-function getDashboardSnapshot() {
+function computeSnapshotFreshness(snap) {
+  if (!snap.hasPrices) return { freshness: 'offline', age: Infinity, status: snap.status };
+  if (snap.status === 'connecting') return { freshness: undefined, age: undefined, status: snap.status };
+  const gold = snap.prices.gram18;
+  const stamp = gold?.source_timestamp ? Date.parse(gold.source_timestamp) : Date.parse(gold?.received_at || '');
+  const age = Number.isFinite(stamp) ? Math.max(0, Date.now() - stamp) : Infinity;
+  const freshness = age <= Math.max(60_000, TGJU_POLL_MS * 2) ? 'live' : age <= 5 * 60_000 ? 'delayed' : 'stale';
+  let status = snap.status;
+  if (freshness === 'stale') status = 'stale';
+  else if (freshness === 'delayed' && status === 'online') status = 'delayed';
+  return { freshness, age, status };
+}
+function getDashboardSnapshot(view = 'full') {
   const retryWindow = tgjuSnapshot.status === 'offline' || tgjuSnapshot.status === 'connecting' ? TGJU_ERROR_RETRY_MS : TGJU_POLL_MS;
   if (!tgjuLastAttemptAt || Date.now() - tgjuLastAttemptAt >= retryWindow) void refreshTgjuSnapshot(true);
-  const payload = { ...tgjuSnapshot, prices: { ...tgjuSnapshot.prices }, sideRates: { ...tgjuSnapshot.sideRates }, assets: { ...(tgjuSnapshot.assets || {}) }, errors: { ...(tgjuSnapshot.errors || {}) }, history: tgjuSnapshot.history || { points: [] }, hasPrices: Boolean(tgjuSnapshot.hasPrices) };
-  if (payload.hasPrices && payload.status !== 'connecting') {
-    const gold = payload.prices.gram18;
-    const stamp = gold?.source_timestamp ? Date.parse(gold.source_timestamp) : Date.parse(gold?.received_at || '');
-    const age = Number.isFinite(stamp) ? Math.max(0, Date.now() - stamp) : Infinity;
-    payload.data_age_ms = age;
-    payload.freshness = age <= Math.max(60_000, TGJU_POLL_MS * 2) ? 'live' : age <= 5 * 60_000 ? 'delayed' : 'stale';
-    if (payload.freshness === 'stale') payload.status = 'stale';
-    else if (payload.freshness === 'delayed' && payload.status === 'online') payload.status = 'delayed';
-  } else if (!payload.hasPrices) payload.freshness = 'offline';
+  const cfgInfo = getCachedSettingsInfo();
+  const logoInfo = getLogoMetaCached();
+  const state = computeSnapshotFreshness(tgjuSnapshot);
+
+  let assets = tgjuSnapshot.assets || {};
+  let history = tgjuSnapshot.history || { points: [] };
+  if (view === 'board') {
+    const filteredAssets = {};
+    for (const sym of cfgInfo.assetSymbols) {
+      if (assets[sym]) filteredAssets[sym] = assets[sym];
+    }
+    assets = filteredAssets;
+    history = { points: [] };
+  }
+
+  const payload = {
+    ...tgjuSnapshot,
+    status: state.status,
+    prices: { ...tgjuSnapshot.prices },
+    sideRates: { ...tgjuSnapshot.sideRates },
+    assets: view === 'board' ? assets : { ...assets },
+    errors: { ...(tgjuSnapshot.errors || {}) },
+    history,
+    hasPrices: Boolean(tgjuSnapshot.hasPrices),
+    snapshotSeq,
+    configVersion: cfgInfo.version,
+    logoVersion: logoInfo.ok ? logoInfo.version : null
+  };
+  if (state.age !== undefined) payload.data_age_ms = state.age;
+  if (state.freshness !== undefined) payload.freshness = state.freshness;
   return payload;
+}
+function getSerializedDashboard(view = 'full') {
+  const retryWindow = tgjuSnapshot.status === 'offline' || tgjuSnapshot.status === 'connecting' ? TGJU_ERROR_RETRY_MS : TGJU_POLL_MS;
+  if (!tgjuLastAttemptAt || Date.now() - tgjuLastAttemptAt >= retryWindow) void refreshTgjuSnapshot(true);
+  const cfgInfo = getCachedSettingsInfo();
+  const logoInfo = getLogoMetaCached();
+  const state = computeSnapshotFreshness(tgjuSnapshot);
+  const etag = `"${snapshotSeq}-${cfgInfo.version}-${logoInfo.version}-${state.freshness || 'conn'}-${view}"`;
+  const existing = serializedSnapshotCache.get(view);
+  if (existing && existing.etag === etag) return existing;
+  const payload = getDashboardSnapshot(view);
+  const jsonBuf = Buffer.from(JSON.stringify(payload), 'utf8');
+  const gzipBuf = jsonBuf.length >= 512 ? zlib.gzipSync(jsonBuf, { level: 5 }) : null;
+  const entry = { etag, jsonBuf, gzipBuf };
+  serializedSnapshotCache.set(view, entry);
+  return entry;
 }
 function getLocalAddresses() {
   const out = [];
@@ -527,20 +644,42 @@ function recordLoginFailure(ip) {
   loginAttempts.set(ip, recent);
 }
 function clearLoginFailures(ip) { loginAttempts.delete(ip); }
-function sendJson(res, status, value) {
-  const body = JSON.stringify(value);
+function sendJson(res, status, value, req = null) {
+  const body = Buffer.from(JSON.stringify(value), 'utf8');
+  if (req && acceptsGzip(req) && body.length >= 768) {
+    const gz = zlib.gzipSync(body, { level: 5 });
+    res.writeHead(status, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Content-Encoding': 'gzip',
+      'Vary': 'Accept-Encoding'
+    });
+    return res.end(gz);
+  }
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(body);
 }
 function addBootScreen(html, showLogout) {
-  const markup = '<div id="farzinBoot" class="farzin-boot" role="status" aria-live="polite"><div class="farzin-boot-inner"><img src="/farzin-logo.png" alt=""><span class="farzin-boot-label">در حال آماده‌سازی استودیو</span><span class="farzin-boot-track"><i></i></span></div></div>';
+  const markup = '<div id="farzinBoot" class="farzin-boot" role="status" aria-live="polite"><div class="farzin-boot-inner"><img src="/farzin-logo.png" alt="" decoding="async"><span class="farzin-boot-label">در حال آماده‌سازی استودیو</span><span class="farzin-boot-track"><i></i></span></div></div>';
   const sessionTools = showLogout && !/id=["']farzinLogout["']/.test(html) ? '<button class="farzin-logout" id="farzinLogout" type="button">خروج امن</button>' : '';
   const assets = '<link rel="stylesheet" href="/boot.css"><script src="/boot.js"></script>';
   return html.replace(/<\/head>/i, `${assets}</head>`).replace(/<\/body>/i, `${sessionTools}${markup}</body>`);
 }
-function sendHtml(res, data, showLogout = false, extraHeaders = {}) {
+function sendHtml(res, data, showLogout = false, extraHeaders = {}, req = null) {
+  const html = Buffer.from(addBootScreen(data.toString('utf8'), showLogout), 'utf8');
+  if (req && acceptsGzip(req) && html.length >= 768) {
+    const gz = zlib.gzipSync(html, { level: 5 });
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Content-Encoding': 'gzip',
+      'Vary': 'Accept-Encoding',
+      ...extraHeaders
+    });
+    return res.end(gz);
+  }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...extraHeaders });
-  res.end(addBootScreen(data.toString('utf8'), showLogout));
+  res.end(html);
 }
 function readBody(req, max = 1_000_000) {
   return new Promise((resolve, reject) => {
@@ -610,33 +749,37 @@ async function routeApi(req, res, pathname) {
         return sendJson(res, 400, { error: 'فایل PNG معتبر نیست یا بیش از حد بزرگ است.' });
       }
       fs.writeFileSync(path.join(ROOT, 'farzin-logo.png'), bytes);
-      return sendJson(res, 200, { ok: true, url: `/farzin-logo.png?v=${Date.now()}` });
+      staticFileCache.delete(path.join(ROOT, 'farzin-logo.png'));
+      const meta = getLogoMetaCached(true);
+      return sendJson(res, 200, { ok: true, url: `/farzin-logo.png?v=${meta.version || Date.now()}` });
     } catch (error) {
       return sendJson(res, 400, { error: error.message || 'آپلود لوگو انجام نشد.' });
     }
   }
   if (pathname === '/api/public-config' && req.method === 'GET') {
-    const settings = readJson(SETTINGS_FILE, null);
+    const rawSettings = getCachedSettingsInfo().value;
+    const settings = rawSettings ? JSON.parse(JSON.stringify(rawSettings)) : null;
     if (settings && settings.boardConfig) delete settings.boardConfig.tgjuWidgetCode;
-    return sendJson(res, 200, { settings, source: 'TGJU', refreshSeconds: 1 });
+    return sendJson(res, 200, { settings, source: 'TGJU', refreshSeconds: 1, configVersion: settingsCache.version }, req);
   }
   if (pathname === '/api/config' && req.method === 'GET') {
-    const settings = readJson(SETTINGS_FILE, null);
-    return sendJson(res, 200, { settings, apiKeyConfigured: false, arzhaamKeyConfigured: false, source: 'TGJU', sourceRequiresKey: false, refreshSeconds: 1 });
+    const settings = getCachedSettingsInfo().value;
+    return sendJson(res, 200, { settings, apiKeyConfigured: false, arzhaamKeyConfigured: false, source: 'TGJU', sourceRequiresKey: false, refreshSeconds: 1 }, req);
   }
   if (pathname === '/api/logo-meta' && req.method === 'GET') {
-    try {
-      const stat = fs.statSync(path.join(ROOT, 'farzin-logo.png'));
-      return sendJson(res, 200, { version: stat.mtimeMs, size: stat.size });
-    } catch {
-      return sendJson(res, 404, { error: 'فایل لوگو پیدا نشد.' });
-    }
+    const meta = getLogoMetaCached();
+    if (!meta.ok) return sendJson(res, 404, { error: 'فایل لوگو پیدا نشد.' });
+    return sendJson(res, 200, { version: meta.version, size: meta.size });
   }
 
   if (pathname === '/api/config' && req.method === 'POST') {
     try {
       const body = await readBody(req);
-      if (body.settings && typeof body.settings === 'object') writeJson(SETTINGS_FILE, body.settings);
+      if (body.settings && typeof body.settings === 'object') {
+        writeJson(SETTINGS_FILE, body.settings);
+        settingsCache.checkedAt = 0;
+        getCachedSettingsInfo();
+      }
       return sendJson(res, 200, { ok: true, apiKeyConfigured: false, arzhaamKeyConfigured: false, source: 'TGJU' });
     } catch (error) {
       return sendJson(res, 400, { error: error.message || 'ذخیره تنظیمات انجام نشد.' });
@@ -644,15 +787,36 @@ async function routeApi(req, res, pathname) {
   }
 
   if (pathname === '/api/assets' && req.method === 'GET') {
-    const snapshot = getDashboardSnapshot();
+    const snapshot = getDashboardSnapshot('full');
     const assets = Object.entries(snapshot.assets || {}).map(([symbol, item]) => ({ symbol, label: item.label || symbol, category: item.category || '', price: item.price, change_pct: item.change_pct, direction: item.direction, updated_at: item.updated_at, unit: item.unit || '' })).sort((a, b) => a.label.localeCompare(b.label, 'fa'));
-    return sendJson(res, 200, { source: 'TGJU', updated_at: snapshot.updated_at, status: snapshot.status, assets, count: assets.length });
+    return sendJson(res, 200, { source: 'TGJU', updated_at: snapshot.updated_at, status: snapshot.status, assets, count: assets.length }, req);
   }
 
   if (pathname === '/api/dashboard-data' && req.method === 'GET') {
-    // Never make the board wait for TGJU. Return the last local snapshot immediately;
+    // Never make the board wait for TGJU. Return the last local pre-serialized snapshot immediately;
     // upstream polling runs independently in the background.
-    return sendJson(res, 200, getDashboardSnapshot());
+    const view = req.headers['x-farzin-view'] === 'board' ? 'board' : 'full';
+    const entry = getSerializedDashboard(view);
+    if (req.headers['if-none-match'] === entry.etag) {
+      res.writeHead(304, { 'ETag': entry.etag, 'Cache-Control': 'no-store' });
+      return res.end();
+    }
+    if (entry.gzipBuf && acceptsGzip(req)) {
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'ETag': entry.etag,
+        'Content-Encoding': 'gzip',
+        'Vary': 'Accept-Encoding'
+      });
+      return res.end(entry.gzipBuf);
+    }
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'ETag': entry.etag
+    });
+    return res.end(entry.jsonBuf);
   }
   if (pathname === '/api/refresh' && (req.method === 'GET' || req.method === 'POST')) {
     void refreshTgjuSnapshot(true);
@@ -695,7 +859,7 @@ const server = http.createServer(async (req, res) => {
     }
     return fs.readFile(path.join(ROOT, 'login.html'), (error, data) => {
       if (error) { res.writeHead(500); return res.end('Login page unavailable'); }
-      sendHtml(res, data);
+      sendHtml(res, data, false, {}, req);
     });
   }
   if (url.pathname === '/403' || url.pathname === '/403/') return sendForbidden(res);
@@ -715,7 +879,7 @@ const server = http.createServer(async (req, res) => {
     const page = url.pathname.startsWith('/board-config') ? 'board-config.html' : url.pathname.startsWith('/tgju-widget') ? 'tgju-widget.html' : 'board.html';
     fs.readFile(path.join(ROOT, page), (error, data) => {
       if (error) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Board page not found'); }
-      sendHtml(res, data, true, extraHeaders);
+      sendHtml(res, data, true, extraHeaders, req);
     });
     return;
   }
@@ -726,14 +890,47 @@ const server = http.createServer(async (req, res) => {
   if (!file.startsWith(ROOT + path.sep) && file !== ROOT) {
     res.writeHead(403); return res.end('Forbidden');
   }
-  fs.readFile(file, (error, data) => {
-    if (error) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Not found'); }
-    if (path.extname(file) === '.html') return sendHtml(res, data, true, extraHeaders);
-    res.writeHead(200, {
-      'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
-      'Cache-Control': 'no-store'
+  fs.stat(file, (statErr, stat) => {
+    if (statErr || !stat.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Not found'); }
+    const ext = path.extname(file);
+    if (ext === '.html') {
+      return fs.readFile(file, (error, data) => {
+        if (error) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Not found'); }
+        sendHtml(res, data, true, extraHeaders, req);
+      });
+    }
+    const etag = `W/"${stat.size}-${Math.trunc(stat.mtimeMs)}"`;
+    const cachePolicy = file.endsWith('service-worker.js')
+      ? 'no-cache, must-revalidate'
+      : 'public, max-age=300, must-revalidate';
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { 'ETag': etag, 'Cache-Control': cachePolicy });
+      return res.end();
+    }
+    const mime = MIME[ext] || 'application/octet-stream';
+    const cachedEntry = staticFileCache.get(file);
+    const sendEntry = (entry) => {
+      const useGz = entry.gzipBuf && acceptsGzip(req);
+      const headers = {
+        'Content-Type': mime,
+        'Cache-Control': cachePolicy,
+        'ETag': entry.etag
+      };
+      if (useGz) {
+        headers['Content-Encoding'] = 'gzip';
+        headers['Vary'] = 'Accept-Encoding';
+      }
+      res.writeHead(200, headers);
+      res.end(useGz ? entry.gzipBuf : entry.data);
+    };
+    if (cachedEntry && cachedEntry.etag === etag) return sendEntry(cachedEntry);
+    fs.readFile(file, (error, data) => {
+      if (error) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Not found'); }
+      const gzipBuf = COMPRESSIBLE_EXTS.has(ext) && data.length >= 512 ? zlib.gzipSync(data, { level: 6 }) : null;
+      const entry = { etag, data, gzipBuf };
+      staticFileCache.set(file, entry);
+      sendEntry(entry);
     });
-    res.end(data);
   });
 });
 

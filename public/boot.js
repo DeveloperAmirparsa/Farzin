@@ -1,5 +1,38 @@
 'use strict';
 (() => {
+  const detectLowPowerMode = () => {
+    try {
+      const ua = String(navigator?.userAgent || '');
+      const isTv = /Tizen|Web0S|webOS|SMART-TV|SmartTV|NetCast|Maple|HbbTV|BRAVIA|AFT|Android TV|GoogleTV|CrKey|Hisense|TCL|Roku|Viera|PhilipsTV|AQUOS|PHILIPS|SAMSUNG.*Browser|LG Browser|MiBox|SHIELD/i.test(ua);
+      const search = String(location?.search || '');
+      if (/[?&](?:lite=0|perf=high)\b/i.test(search)) return { lowPower: false, isTv };
+      if (/[?&](?:lite=1|tv=1|perf=low)\b/i.test(search)) return { lowPower: true, isTv: true };
+      const stored = window.localStorage?.getItem('farzin_perf_mode');
+      if (stored === 'high') return { lowPower: false, isTv };
+      if (stored === 'low') return { lowPower: true, isTv };
+      const cores = Number(navigator?.hardwareConcurrency);
+      const mem = Number(navigator?.deviceMemory);
+      const saveData = Boolean(navigator?.connection?.saveData);
+      const reducedMotion = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
+      const noBackdrop = typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+        ? (!CSS.supports('backdrop-filter', 'blur(4px)') && !CSS.supports('-webkit-backdrop-filter', 'blur(4px)'))
+        : false;
+      const weakCpu = Number.isFinite(cores) && cores > 0 && cores <= 4;
+      const weakRam = Number.isFinite(mem) && mem > 0 && mem <= 2;
+      return { lowPower: isTv || weakCpu || weakRam || saveData || reducedMotion || noBackdrop, isTv };
+    } catch {
+      return { lowPower: false, isTv: false };
+    }
+  };
+  const hwProfile = detectLowPowerMode();
+  window.__farzinLowPower = hwProfile.lowPower;
+  window.__farzinIsTv = hwProfile.isTv;
+  if (document?.documentElement?.classList) {
+    document.documentElement.classList.toggle('fz-low-power', hwProfile.lowPower);
+    document.documentElement.classList.toggle('fz-tv', hwProfile.isTv);
+    document.documentElement.setAttribute?.('data-perf-mode', hwProfile.lowPower ? 'low' : 'high');
+  }
+
   const TOKEN_KEY = 'farzin_token';
   const STATIC_EXT_RE = /\.(css|js|png|svg|ico|webmanifest|json)$/i;
   const getToken = () => {

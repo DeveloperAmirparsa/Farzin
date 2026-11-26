@@ -7,6 +7,8 @@
 <title>نمایشگر رسمی TGJU · گالری فرزین</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Naskh+Arabic:wght@500;600;700&family=Vazirmatn:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Naskh+Arabic:wght@500;600;700&family=Vazirmatn:wght@400;500;600;700;800&display=swap"></noscript>
 <link rel="stylesheet" href="/design-system.css">
 <style>
   .fz-widget-meta {
@@ -66,7 +68,7 @@
 <header class="fz-topbar">
   <div class="fz-topbar-inner">
     <a class="fz-brand" href="/">
-      <span class="fz-brand-mark"><img src="/farzin-logo.png" alt="گالری فرزین"></span>
+      <span class="fz-brand-mark"><img src="/farzin-logo.png" alt="گالری فرزین" decoding="async"></span>
       <span class="fz-brand-name" id="brandName">گالری فرزین</span>
     </a>
 
@@ -131,29 +133,48 @@
   </footer>
 </main>
 
+<script src="/smart-tv-utils.js"></script>
 <script src="/ui-components.js" defer></script>
 <script src="/tgju-widget.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
+  const clockFmt = new Intl.DateTimeFormat('fa-IR', {
+    timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+  const dateFmt = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+    timeZone: 'Asia/Tehran', weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit'
+  });
   let activeCode = '';
   let loading = false;
+  let lastDayKey = '';
 
   function tick() {
+    if (document.hidden) return;
     const now = new Date();
-    $('clock').textContent = new Intl.DateTimeFormat('fa-IR', {
-      timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-    }).format(now);
-    $('todayLabel').textContent = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
-      timeZone: 'Asia/Tehran', weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit'
-    }).format(now);
+    $('clock').textContent = clockFmt.format(now);
+    const dayKey = now.toDateString();
+    if (dayKey !== lastDayKey) {
+      lastDayKey = dayKey;
+      $('todayLabel').textContent = dateFmt.format(now);
+    }
+  }
+
+  async function fetchWithTimeout(url, ms) {
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), ms) : null;
+    try {
+      return await fetch(url, controller ? { cache: 'no-store', signal: controller.signal } : { cache: 'no-store' });
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   async function syncConfig() {
-    if (loading) return;
+    if (loading || document.hidden) return;
     loading = true;
     try {
-      const r = await fetch('/api/config', { cache: 'no-store', signal: AbortSignal.timeout(5000) });
+      const r = await fetchWithTimeout('/api/config', 5000);
       if (!r.ok) throw new Error('بارگذاری تنظیمات ناموفق بود.');
       const data = await r.json();
       const s = data.settings || {};
@@ -185,7 +206,7 @@
   syncConfig();
   setInterval(syncConfig, 30000);
   window.addEventListener('online', syncConfig);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncConfig(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); syncConfig(); } });
 })();
 </script>
 </body>

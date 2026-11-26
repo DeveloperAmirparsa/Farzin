@@ -12,6 +12,8 @@
 <title>استودیو استوری فرزین · میز کار بازار</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Naskh+Arabic:wght@500;600;700&family=Vazirmatn:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Naskh+Arabic:wght@500;600;700&family=Vazirmatn:wght@400;500;600;700;800&display=swap"></noscript>
 <link rel="stylesheet" href="/design-system.css">
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -21,7 +23,7 @@
 <header class="fz-topbar">
   <div class="fz-topbar-inner">
     <a class="fz-brand" href="/">
-      <span class="fz-brand-mark"><img id="adminLogo" src="/farzin-logo.png" alt="لوگوی فرزین"></span>
+      <span class="fz-brand-mark"><img id="adminLogo" src="/farzin-logo.png" alt="لوگوی فرزین" decoding="async"></span>
       <span class="fz-brand-name">گالری فرزین</span>
     </a>
 
@@ -163,7 +165,7 @@
             <label class="fz-check"><input data-config="showLogo" type="checkbox"><span>نمایش لوگوی بالای استوری</span></label>
           </div>
           <div class="logo-upload-row">
-            <div class="logo-current"><img id="logoThumb" src="/farzin-logo.png" alt="لوگو"><span>لوگوی PNG شفاف با وضوح بالا</span></div>
+            <div class="logo-current"><img id="logoThumb" src="/farzin-logo.png" alt="لوگو" decoding="async" loading="lazy"><span>لوگوی PNG شفاف با وضوح بالا</span></div>
             <label class="fz-btn fz-btn-secondary fz-btn-sm upload-btn">جایگزینی لوگو<input id="logoUpload" type="file" accept="image/png"></label>
           </div>
         </div>
@@ -296,6 +298,7 @@
 <script src="/asset-catalog.js"></script>
 <script src="/asset-icons.js"></script>
 <script src="/quote-pricing.js"></script>
+<script src="/smart-tv-utils.js"></script>
 <script src="/ui-components.js"></script>
 <script src="/app.js"></script>
 <script src="/pwa.js" defer></script>

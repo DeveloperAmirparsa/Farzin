@@ -122,11 +122,12 @@
     });
   }
 
+  const faNumFmt = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 });
   function formatFaNum(value) {
     if (value === null || value === undefined || value === '') return '—';
     const n = Number(value);
     if (!Number.isFinite(n)) return String(value);
-    return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 })
+    return faNumFmt
       .formatToParts(n)
       .map(p => (p.type === 'group' ? ',' : p.type === 'decimal' ? '.' : p.value))
       .join('');
@@ -135,6 +136,8 @@
   const previousTablePrices = new Map();
   const activeTableTicks = new Map();
   let lastTablePayloadRef = null;
+  let lastRenderedPayloadRef = undefined;
+  let lastRenderedQuery = null;
   let tableTickClearTimer = null;
 
   function resolveItemDirection(item) {
@@ -238,6 +241,11 @@
   }
 
   function renderMarketTable(payload, query = '') {
+    const q = String(query || '').trim().toLowerCase();
+    if (payload === lastRenderedPayloadRef && q === lastRenderedQuery) return;
+    lastRenderedPayloadRef = payload;
+    lastRenderedQuery = q;
+
     const tbody = document.getElementById('marketTableBody');
     const items = [];
     const labels = {
@@ -323,7 +331,6 @@
     renderMarketBreadth(items, Boolean(payload), esc, trendArrowSvg);
     if (!tbody) return;
 
-    const q = String(query || '').trim().toLowerCase();
     const filtered = q
       ? items.filter(item => item.name.toLowerCase().includes(q) || item.key.toLowerCase().includes(q) || item.category.includes(q))
       : items;
@@ -407,6 +414,7 @@
   }
 
   function initTiltEffects() {
+    if (window.__farzinLowPower || document.documentElement?.classList?.contains('fz-low-power')) return;
     if (typeof window.matchMedia !== 'function') return;
     const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -439,6 +447,7 @@
         }
       };
       el.addEventListener('pointermove', event => {
+        if (window.__farzinLowPower) return;
         latest = { x: event.clientX, y: event.clientY };
         if (!rafId) rafId = window.requestAnimationFrame(apply);
       }, { passive: true });
